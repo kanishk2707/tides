@@ -1,0 +1,48 @@
+# TLS termination and reverse proxy for the match server.
+#
+# DOMAIN comes from .env. Caddy obtains and renews the certificate itself. The websocket
+# endpoint is /ws so the same host can later serve the legal pages at / if you want them here.
+
+{$DOMAIN} {
+    encode zstd gzip
+
+    # Health probe for load balancers and uptime monitors -- no auth, no state.
+    handle /healthz {
+        reverse_proxy server:7789
+    }
+    handle /metrics {
+        # Keep metrics private: only from the local network / your monitoring host.
+        @internal remote_ip private_ranges
+        reverse_proxy @internal server:7789
+        respond 403
+    }
+
+    # The game.
+    handle /ws {
+        reverse_proxy server:7788 {
+            # Websocket upgrades pass through automatically; these keep idle matches alive.
+            transport http {
+                read_timeout 300s
+                write_timeout 300s
+            }
+        }
+    }
+
+    # Optional: the legal pages, if you copy docs/ here (they are on GitHub Pages by default).
+    handle {
+        root * /srv/site
+        file_server
+    }
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options nosniff
+        Referrer-Policy no-referrer
+        -Server
+    }
+
+    log {
+        output stderr
+        format console
+    }
+}

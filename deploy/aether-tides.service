@@ -1,0 +1,37 @@
+# systemd unit for running the jar directly (no Docker). Put TLS in front with Caddy or nginx,
+# or set TLS_KEYSTORE / TLS_KEYSTORE_PASSWORD to serve wss:// directly from a PKCS12 file.
+#
+#   sudo cp aether-tides.service /etc/systemd/system/
+#   sudo mkdir -p /opt/aether && sudo cp ../server/build/libs/aether-tides-server-*.jar /opt/aether/server.jar
+#   sudo cp .env /opt/aether/.env && sudo chmod 600 /opt/aether/.env
+#   sudo systemctl enable --now aether-tides
+
+[Unit]
+Description=Aether Tides match server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=aether
+Group=aether
+WorkingDirectory=/opt/aether
+EnvironmentFile=/opt/aether/.env
+Environment=PORT=7788 HEALTH_PORT=7789
+ExecStart=/usr/bin/java -Xms256m -Xmx768m -XX:+UseG1GC -XX:MaxGCPauseMillis=20 -jar /opt/aether/server.jar
+Restart=always
+RestartSec=3
+LimitNOFILE=65536
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+ReadWritePaths=/opt/aether
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,15 @@
+buildscript {
+    repositories { google(); mavenCentral(); gradlePluginPortal() }
+    dependencies {
+        classpath "com.android.tools.build:gradle:$agpVersion"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
+        // Firebase plugins are on the classpath always and applied only when configured.
+        classpath 'com.google.gms:google-services:4.4.2'
+        classpath 'com.google.firebase:firebase-crashlytics-gradle:3.0.2'
+    }
+}
+
+allprojects {
+    group = 'com.mythron.aethertides'
+    version = '1.0.0'
+}

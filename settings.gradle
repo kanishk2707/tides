@@ -1,0 +1,22 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        google()
+        mavenCentral()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = 'AetherTides'
+
+include ':shared'    // pure-JVM deterministic simulation + wire protocol (client & server share it)
+include ':core'      // libGDX game client (render, input, HUD, netcode)
+include ':android'   // Play Store target
+include ':desktop'   // dev harness: fast iteration without a device
+include ':server'    // headless authoritative match server

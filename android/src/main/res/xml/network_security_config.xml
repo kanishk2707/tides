@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Release: no cleartext to anywhere. The match server and the auth service are both TLS.
+  A debug build overrides this (src/debug/res/xml) to allow the emulator loopback alias, so a
+  developer can run a plain ws:// server on the host machine.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

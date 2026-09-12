@@ -1,0 +1,13 @@
+Fonts bundled with AETHER TIDES
+================================
+
+title.ttf  -- Cinzel Decorative Bold, Natanael Gama. SIL Open Font License 1.1.
+hud.ttf    -- Rajdhani SemiBold, Indian Type Foundry. SIL Open Font License 1.1.
+body.ttf   -- Rajdhani Medium, Indian Type Foundry. SIL Open Font License 1.1.
+
+Both families are published under the SIL Open Font License, Version 1.1, which
+permits bundling inside an application, including a commercial one, provided the
+fonts are not sold on their own and this notice travels with them.
+
+Full licence text: https://scripts.sil.org/OFL
+Sources: https://github.com/google/fonts

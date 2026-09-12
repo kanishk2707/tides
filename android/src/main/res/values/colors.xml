@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches the deep-water end of the in-game palette, so launch does not flash. -->
+    <color name="launch_background">#03101C</color>
+    <color name="ic_launcher_background">#0A3757</color>
+</resources>

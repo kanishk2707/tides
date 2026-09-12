@@ -1,0 +1,142 @@
+apply plugin: 'com.android.application'
+apply plugin: 'org.jetbrains.kotlin.android'
+
+// Firebase (Crashlytics + Analytics) is optional and switches on by the presence of the config
+// file the Firebase console hands out. Without it, the build is identical to a build with no
+// Firebase at all: no plugin, no dependency, no class. See docs/LAUNCH_CHECKLIST.md.
+def firebaseEnabled = rootProject.file('android/google-services.json').exists()
+if (firebaseEnabled) {
+    apply plugin: 'com.google.gms.google-services'
+    apply plugin: 'com.google.firebase.crashlytics'
+}
+
+// Release signing is read from keystore.properties (never committed). Falls back to the
+// debug keystore so a fresh clone can still `assembleRelease` for local testing.
+def keystorePropsFile = rootProject.file('keystore.properties')
+def keystoreProps = new Properties()
+if (keystorePropsFile.exists()) keystoreProps.load(new FileInputStream(keystorePropsFile))
+
+android {
+    namespace 'com.mythron.aethertides'
+    compileSdk 35
+
+    buildFeatures { buildConfig true }
+
+    defaultConfig {
+        applicationId 'com.mythron.aethertides'
+        minSdk 26        // adaptive icons only, so the project ships zero raster art
+        targetSdk 35
+        // Bump these in gradle.properties for every store upload; Play requires versionCode
+        // to increase monotonically and rejects a duplicate.
+        versionCode = ((project.findProperty('appVersionCode') ?: '1') as String).toInteger()
+        versionName = (project.findProperty('appVersionName') ?: '1.0.0') as String
+        vectorDrawables.useSupportLibrary = true
+        ndk { abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86_64' }
+    }
+
+    signingConfigs {
+        if (keystoreProps.getProperty('storeFile') != null) {
+            release {
+                storeFile file(keystoreProps['storeFile'])
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix '.debug'
+            versionNameSuffix '-debug'
+            minifyEnabled false
+        }
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (keystoreProps.getProperty('storeFile') != null) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    packaging {
+        resources {
+            excludes += ['META-INF/robovm/**', 'META-INF/DEPENDENCY*', 'META-INF/LICENSE*', 'META-INF/NOTICE*']
+        }
+    }
+
+    sourceSets {
+        main {
+            jniLibs.srcDirs = ['libs']
+            assets.srcDirs = ['src/main/assets']
+            if (firebaseEnabled) kotlin.srcDirs += 'src/firebase/kotlin'
+        }
+    }
+
+    bundle {
+        language { enableSplit = false }
+    }
+
+    lint { abortOnError false }
+}
+
+kotlin {
+    compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
+}
+
+configurations { natives }
+
+dependencies {
+    implementation project(':core')
+    implementation "com.badlogicgames.gdx:gdx-backend-android:$gdxVersion"
+    implementation 'androidx.core:core-ktx:1.13.1'
+
+    if (firebaseEnabled) {
+        implementation platform('com.google.firebase:firebase-bom:33.4.0')
+        implementation 'com.google.firebase:firebase-analytics'
+        implementation 'com.google.firebase:firebase-crashlytics'
+    }
+
+    natives "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-armeabi-v7a"
+    natives "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-arm64-v8a"
+    natives "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-x86_64"
+    natives "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-armeabi-v7a"
+    natives "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-arm64-v8a"
+    natives "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-x86_64"
+}
+
+// libGDX ships its natives as classifier jars; unpack them into the ABI folders AGP expects.
+tasks.register('copyAndroidNatives') {
+    doFirst {
+        file('libs/armeabi-v7a/').mkdirs()
+        file('libs/arm64-v8a/').mkdirs()
+        file('libs/x86_64/').mkdirs()
+
+        configurations.natives.files.each { jar ->
+            def outputDir = null
+            if (jar.name.endsWith('natives-armeabi-v7a.jar')) outputDir = file('libs/armeabi-v7a')
+            if (jar.name.endsWith('natives-arm64-v8a.jar')) outputDir = file('libs/arm64-v8a')
+            if (jar.name.endsWith('natives-x86_64.jar')) outputDir = file('libs/x86_64')
+            if (outputDir != null) {
+                copy {
+                    from zipTree(jar)
+                    into outputDir
+                    include '*.so'
+                }
+            }
+        }
+    }
+}
+
+tasks.configureEach { task ->
+    if (task.name.startsWith('merge') && task.name.endsWith('JniLibFolders')) {
+        task.dependsOn 'copyAndroidNatives'
+    }
+}

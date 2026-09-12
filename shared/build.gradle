@@ -1,0 +1,21 @@
+apply plugin: 'java-library'
+apply plugin: 'org.jetbrains.kotlin.jvm'
+
+// Deterministic, dependency-free simulation. No libGDX, no Android, no JVM-version-specific
+// floating point tricks -- so the exact same code runs the match on the server and predicts
+// it on every phone.
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+kotlin {
+    compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
+}
+
+dependencies {
+    testImplementation "org.jetbrains.kotlin:kotlin-test:$kotlinVersion"
+    testImplementation "org.jetbrains.kotlin:kotlin-test-junit:$kotlinVersion"
+    testImplementation 'junit:junit:4.13.2'
+}
+
+test { useJUnit() }

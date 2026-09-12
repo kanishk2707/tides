@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  App icon foreground.
+
+  A single wave carrying a single hull. Drawn inside the 66dp adaptive-icon safe zone so no
+  launcher mask crops the mast. Pure vector, so there is not one raster icon in the project.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Far swell, behind everything -->
+    <path
+        android:fillColor="#1C5162"
+        android:pathData="M22,62 C34,54 44,68 56,60 C68,52 78,66 90,58 L90,86 L22,86 Z" />
+
+    <!-- The crest, translucent at its lip the way a backlit wave reads -->
+    <path
+        android:fillColor="#1C7EA6"
+        android:pathData="M18,70 C30,58 42,76 55,66 C68,56 80,74 92,64 L92,90 L18,90 Z" />
+    <path
+        android:fillColor="#62DCCB"
+        android:pathData="M18,70 C30,58 42,76 55,66 C68,56 80,74 92,64 L92,70 C80,80 68,62 55,72 C42,82 30,64 18,76 Z" />
+
+    <!-- Foam along the breaking edge -->
+    <path
+        android:strokeColor="#F4FCFF"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M18,70 C30,58 42,76 55,66 C68,56 80,74 92,64" />
+
+    <!-- Mast and gaff -->
+    <path
+        android:strokeColor="#4B301B"
+        android:strokeWidth="2.6"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M52,56 L52,22" />
+
+    <!-- Sail, bellied to leeward -->
+    <path
+        android:fillColor="#F1E7D3"
+        android:pathData="M53,24 C66,32 70,42 66,52 L53,52 Z" />
+    <path
+        android:fillColor="#BEAF97"
+        android:pathData="M53,38 C61,40 64,45 63,52 L53,52 Z" />
+
+    <!-- Hull -->
+    <path
+        android:fillColor="#6A4425"
+        android:pathData="M34,52 L74,52 L69,63 C61,66 47,66 39,63 Z" />
+    <path
+        android:fillColor="#D9A55B"
+        android:pathData="M34,52 L74,52 L73,55 L35,55 Z" />
+
+    <!-- The aether the navigator carries -->
+    <path
+        android:fillColor="#6FE9FF"
+        android:pathData="M52,18 m-3.4,0 a3.4,3.4 0 1,0 6.8,0 a3.4,3.4 0 1,0 -6.8,0" />
+</vector>
