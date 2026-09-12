@@ -20,8 +20,8 @@ in the repo).
 
 ## 2. Supabase
 
-- [ ] **you** — SQL Editor → paste the whole of `supabase/migrations/0001_profiles_and_matches.sql`
-      → Run. **This is the last blocker for online play.** Until it runs, the server admits
+- [ ] **you** — Open https://supabase.com/dashboard/project/kldficmkpzgkhfwcforh/sql/new, paste
+      the whole of `supabase/migrations/0001_profiles_and_matches.sql`, Run. **This is the last blocker for online play.** Until it runs, the server admits
       players but cannot save profiles, so ratings and names are lost between sessions.
 - [x] **done** — Anonymous sign-ins are enabled (verified live: a real anonymous user was
       created against the project).
@@ -45,11 +45,10 @@ in the repo).
 
 - [x] **done** — The legal site is rendered into `docs/` (`python legal/build-site.py`) and
       the app links to `https://kanishk2707.github.io/tides/…`.
-- [ ] **you** — Turn Pages on: github.com/kanishk2707/tides → Settings → Pages → Source
-      *Deploy from a branch* → Branch **main**, folder **/docs** → Save. The four pages are
-      live a minute later at `https://kanishk2707.github.io/tides/privacy.html` etc. Paste
-      `…/privacy.html` into Play Console → Store listing → Privacy policy, and
-      `…/delete-account.html` into Data safety → Account deletion URL.
+- [x] **done** — GitHub Pages is enabled on `kanishk2707/tides` (branch main, folder /docs)
+      and live: https://kanishk2707.github.io/tides/privacy.html, …/terms.html,
+      …/delete-account.html. Paste the privacy URL into Play Console → Store listing, and the
+      delete-account URL into Data safety → Account deletion.
 - [ ] **you** — In `legal/terms-of-service.md` §10, replace `[JURISDICTION]` with where
       Mythron Technologies is established, then `python legal/build-site.py` and commit.
 - [x] **done** — Contact address is `polarizenterprises@gmail.com` in the app and every document.
