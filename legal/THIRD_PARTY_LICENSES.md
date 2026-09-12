@@ -20,4 +20,4 @@ Full licence texts:
 - MIT License — https://opensource.org/license/mit
 - SIL Open Font License 1.1 — https://scripts.sil.org/OFL
 
-Everything not listed here is original work of Mythron Technologies.
+Everything not listed here is original work of Polariz Enterprises.

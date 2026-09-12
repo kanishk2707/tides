@@ -121,7 +121,7 @@ def write(name, content):
 INDEX = """# Aether Tides
 
 **One sails. One drowns them.** An asymmetric two-player sailing duel for Android, by
-Mythron Technologies.
+Polariz Enterprises.
 
 - [Privacy Policy](privacy-policy.md)
 - [Terms of Service](terms-of-service.md)

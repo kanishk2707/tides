@@ -13,7 +13,7 @@ a policy strike.
 | Default language | English (United States) |
 | Category | Game → Action (alternatives: Arcade, Simulation) |
 | Tags | Multiplayer, Physics, Sailing, PvP, Offline |
-| Package name | `com.mythron.aethertides` |
+| Package name | `com.polariz.aethertides` |
 | Contact email | polarizenterprises@gmail.com |
 | Privacy policy URL | `https://kanishk2707.github.io/tides/privacy.html` (live once Pages is enabled on the repo) |
 | Free / paid | Free |

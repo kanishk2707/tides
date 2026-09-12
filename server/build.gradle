@@ -10,7 +10,7 @@ kotlin {
 }
 
 application {
-    mainClass = 'com.mythron.aethertides.server.MainKt'
+    mainClass = 'com.polariz.aethertides.server.MainKt'
 }
 
 dependencies {
@@ -26,7 +26,7 @@ tasks.register('fatJar', Jar) {
     // serial build and fails validation the moment anything runs in parallel.
     dependsOn configurations.runtimeClasspath
     archiveBaseName = 'aether-tides-server'
-    manifest { attributes 'Main-Class': 'com.mythron.aethertides.server.MainKt' }
+    manifest { attributes 'Main-Class': 'com.polariz.aethertides.server.MainKt' }
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
     with jar

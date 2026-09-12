@@ -18,3 +18,4 @@ server/.env
 
 # Local assistant configuration
 .claude/
+android/src/debug/google-services.json

@@ -6,6 +6,22 @@ apply plugin: 'org.jetbrains.kotlin.android'
 // Firebase at all: no plugin, no dependency, no class. See docs/LAUNCH_CHECKLIST.md.
 def firebaseEnabled = rootProject.file('android/google-services.json').exists()
 if (firebaseEnabled) {
+    // The google-services plugin matches the config's package_name against the variant's
+    // applicationId, and the debug variant carries a '.debug' suffix that Firebase has never
+    // heard of. Rather than making someone register a second app in the console just to build
+    // a debug APK, derive a debug config from the real one with the suffixed name.
+    //
+    // Nothing is ever reported from a debug build -- FirebaseTelemetry turns collection off
+    // when BuildConfig.DEBUG -- so this file exists only to satisfy the plugin.
+    def realConfig = rootProject.file('android/google-services.json')
+    def debugConfig = file('src/debug/google-services.json')
+    def parsed = new groovy.json.JsonSlurper().parseText(realConfig.text)
+    parsed.client.each { c ->
+        c.client_info.android_client_info.package_name += '.debug'
+    }
+    debugConfig.parentFile.mkdirs()
+    debugConfig.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(parsed))
+
     apply plugin: 'com.google.gms.google-services'
     apply plugin: 'com.google.firebase.crashlytics'
 }
@@ -17,13 +33,13 @@ def keystoreProps = new Properties()
 if (keystorePropsFile.exists()) keystoreProps.load(new FileInputStream(keystorePropsFile))
 
 android {
-    namespace 'com.mythron.aethertides'
+    namespace 'com.polariz.aethertides'
     compileSdk 35
 
     buildFeatures { buildConfig true }
 
     defaultConfig {
-        applicationId 'com.mythron.aethertides'
+        applicationId 'com.polariz.aethertides'
         minSdk 26        // adaptive icons only, so the project ships zero raster art
         targetSdk 35
         // Bump these in gradle.properties for every store upload; Play requires versionCode

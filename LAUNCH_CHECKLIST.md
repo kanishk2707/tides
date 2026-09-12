@@ -50,7 +50,7 @@ in the repo).
       …/delete-account.html. Paste the privacy URL into Play Console → Store listing, and the
       delete-account URL into Data safety → Account deletion.
 - [ ] **you** — In `legal/terms-of-service.md` §10, replace `[JURISDICTION]` with where
-      Mythron Technologies is established, then `python legal/build-site.py` and commit.
+      Polariz Enterprises is established, then `python legal/build-site.py` and commit.
 - [x] **done** — Contact address is `polarizenterprises@gmail.com` in the app and every document.
 - [ ] **done** — First-launch consent screen (terms, privacy, 13+ gate), in-app deletion,
       in-app licence list, legal version gating so a policy change re-prompts.
@@ -58,7 +58,7 @@ in the repo).
 ## 5. Firebase (optional, recommended for crash reports)
 
 - [ ] **you** — Firebase console → your project (`tide-6787a`) → *Add app* → **Android** →
-      package `com.mythron.aethertides` → download `google-services.json` →
+      package `com.polariz.aethertides` → download `google-services.json` →
       put it at `android/google-services.json`. That file is git-ignored.
 - [ ] **done** — The build detects that file and switches Crashlytics + Analytics on. Without
       it nothing Firebase-related is compiled in. The web config you pasted (`apiKey`,

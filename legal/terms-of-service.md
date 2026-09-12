@@ -1,7 +1,7 @@
 # Aether Tides — Terms of Service
 
 **Effective:** 12 September 2026 · **Version:** 1
-**Operator:** Mythron Technologies ("we", "us") · **Contact:** polarizenterprises@gmail.com
+**Operator:** Polariz Enterprises ("we", "us") · **Contact:** polarizenterprises@gmail.com
 
 By installing or playing Aether Tides (the "Game") you agree to these terms. If you do not
 agree, do not play. Our [Privacy Policy](privacy-policy.md) explains what we collect and is
@@ -82,4 +82,4 @@ protection you have where you live.
 
 ## 11. Contact
 
-Mythron Technologies · polarizenterprises@gmail.com
+Polariz Enterprises · polarizenterprises@gmail.com

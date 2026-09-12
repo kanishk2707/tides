@@ -1,7 +1,7 @@
 # Aether Tides — Privacy Policy
 
 **Effective:** 12 September 2026 · **Version:** 1
-**Operator:** Mythron Technologies ("we", "us") · **Contact:** polarizenterprises@gmail.com
+**Operator:** Polariz Enterprises ("we", "us") · **Contact:** polarizenterprises@gmail.com
 
 This policy explains what Aether Tides (the "Game") collects, why, and what you can do about
 it. It is written to be read. If anything here is unclear, email us.
@@ -98,4 +98,4 @@ version before you play online again. The version number at the top will change.
 
 ## Contact
 
-Mythron Technologies · polarizenterprises@gmail.com
+Polariz Enterprises · polarizenterprises@gmail.com

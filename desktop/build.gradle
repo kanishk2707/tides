@@ -10,7 +10,7 @@ kotlin {
 }
 
 application {
-    mainClass = 'com.mythron.aethertides.desktop.DesktopLauncherKt'
+    mainClass = 'com.polariz.aethertides.desktop.DesktopLauncherKt'
 }
 
 // Assets live in the Android module (that is where the packager expects them), so the desktop

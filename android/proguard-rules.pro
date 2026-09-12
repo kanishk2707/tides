@@ -11,5 +11,5 @@
 -dontwarn org.slf4j.**
 
 # Shared simulation is reflected over by the snapshot codec's enum tables
--keep enum com.mythron.aethertides.shared.** { *; }
+-keep enum com.polariz.aethertides.shared.** { *; }
 -keepattributes *Annotation*, Signature, InnerClasses

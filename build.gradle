@@ -10,6 +10,6 @@ buildscript {
 }
 
 allprojects {
-    group = 'com.mythron.aethertides'
+    group = 'com.polariz.aethertides'
     version = '1.0.0'
 }
