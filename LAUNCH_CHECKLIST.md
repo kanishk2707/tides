@@ -10,7 +10,7 @@ in the repo).
       is compromised by definition. Supabase dashboard → Project Settings → API → *Rotate*.
 - [ ] **you** — Put the new `sb_secret_…` in `deploy/.env` **only**. It is read by the match
       server from the environment and is never built into the app. `.env` is git-ignored.
-- [ ] **done** — The publishable key (`sb_publishable_…`) is in `core/…/Platform.kt`. It is
+- [x] **done** — The publishable key (`sb_publishable_…`) is in `core/…/Platform.kt`. It is
       designed to ship in the client; it can only do what Row Level Security allows, which
       here is: create anonymous sessions and read your own row.
 - [x] **done** — `Publish.SUPABASE_URL` is set to `https://kldficmkpzgkhfwcforh.supabase.co`.
@@ -20,26 +20,30 @@ in the repo).
 
 ## 2. Supabase
 
-- [ ] **you** — Open https://supabase.com/dashboard/project/kldficmkpzgkhfwcforh/sql/new, paste
-      the whole of `supabase/migrations/0001_profiles_and_matches.sql`, Run. **This is the last blocker for online play.** Until it runs, the server admits
-      players but cannot save profiles, so ratings and names are lost between sessions.
+- [x] **done** — The migration has been run: profiles, match_results, RLS and the leaderboard
+      view exist.
 - [x] **done** — Anonymous sign-ins are enabled (verified live: a real anonymous user was
       created against the project).
-- [ ] **you** — Authentication → Rate Limits → leave anonymous sign-ins at the default (30
-      per hour per IP). Raise later if real players hit it.
+- [x] **done** — Anonymous sign-in rate limit set to 30/hour/IP.
 - [ ] **you** — Optional: Database → Extensions → enable `pg_cron`, then run the retention
       schedule at the bottom of the migration file so match history is pruned at 12 months,
       which is what the privacy policy promises.
 
 ## 3. Match server
 
-- [ ] **you** — A VPS with a public IP and a DNS name (`deploy/README.md`).
-- [ ] **you** — `deploy/.env` from `.env.example`; `docker compose up -d --build`.
-- [ ] **you** — `curl https://<host>/healthz` returns `{"ok":true,…}`.
-- [ ] **you** — Set `Publish.SERVER_URL` to `wss://<host>/ws`.
-- [ ] **done** — TLS via Caddy, frame-size caps, per-IP and total connection caps, NaN
-      rejection, name sanitisation, private-code minimum length, auth-before-anything,
-      server-owned ratings, isolated room failures, single-writer sim thread.
+Only needed for **online** play; practice mode works with none of this.
+
+- [ ] **you** — Follow `deploy/HOSTING.md`. It is written for someone who has never deployed
+      anything: Fly.io, no VPS to buy, no domain to register, no DNS to configure, TLS
+      automatic. About fifteen minutes, and it ends with a `wss://…fly.dev` hostname.
+- [ ] **you** — Put that hostname in `Publish.SERVER_URL` (`core/…/client/Platform.kt`) and
+      rebuild. Keep the `wss://` scheme.
+- [x] **done** — `deploy/fly.toml` is configured (machines never sleep, health check on its
+      own port, secrets by `fly secrets set`). `deploy/README.md` still has the VPS +
+      Docker + Caddy path if you would rather own the box.
+- [x] **done** — TLS, frame-size caps, per-IP and total connection caps, NaN rejection, name
+      sanitisation, private-code minimum length, auth-before-anything, server-owned ratings,
+      isolated room failures, single-writer sim thread.
 
 ## 4. Legal
 
@@ -52,23 +56,26 @@ in the repo).
 - [ ] **you** — In `legal/terms-of-service.md` §10, replace `[JURISDICTION]` with where
       Polariz Enterprises is established, then `python legal/build-site.py` and commit.
 - [x] **done** — Contact address is `polarizenterprises@gmail.com` in the app and every document.
-- [ ] **done** — First-launch consent screen (terms, privacy, 13+ gate), in-app deletion,
+- [x] **done** — First-launch consent screen (terms, privacy, 13+ gate), in-app deletion,
       in-app licence list, legal version gating so a policy change re-prompts.
 
-## 5. Firebase (optional, recommended for crash reports)
+## 5. Firebase
 
-- [ ] **you** — Firebase console → your project (`tide-6787a`) → *Add app* → **Android** →
-      package `com.polariz.aethertides` → download `google-services.json` →
-      put it at `android/google-services.json`. That file is git-ignored.
-- [ ] **done** — The build detects that file and switches Crashlytics + Analytics on. Without
-      it nothing Firebase-related is compiled in. The web config you pasted (`apiKey`,
-      `appId: …:web:…`) is for websites and is not used by the Android app.
-- [ ] **you** — If you enable it, keep the three Firebase rows in the Data Safety form
-      (`legal/PLAY_CONSOLE.md`). If you do not, delete them.
+- [x] **done** — `android/google-services.json` is installed (git-ignored) for the Firebase
+      Android app `com.polariz.aethertides` in project `tide-6787a`. Crashlytics and Analytics
+      compile in and are verified present in the APK.
+- [x] **done** — The app's `applicationId` was changed from `com.mythron.aethertides` to
+      `com.polariz.aethertides` to match, and the Kotlin package with it. This had to happen
+      before the first Play upload: `applicationId` is permanent afterwards.
+- [x] **done** — Debug builds carry a `.debug` suffix that Firebase does not know about, so
+      the debug config is derived from the real one at build time. No second Firebase app to
+      register. Debug builds never report — collection is off when `BuildConfig.DEBUG`.
+- [ ] **you** — Keep the three Firebase rows in the Data Safety form (`legal/PLAY_CONSOLE.md`),
+      since Firebase is now enabled.
 
 ## 6. Build and test
 
-- [ ] **done** — `./gradlew :shared:test` → 21 tests, physics + netcode + hostile-client.
+- [x] **done** — `./gradlew :shared:test` → 21 tests, physics + netcode + hostile-client.
 - [ ] **you** — Bump `appVersionCode` / `appVersionName` in `gradle.properties`.
 - [ ] **you** — `./gradlew :android:bundleRelease` → `android/build/outputs/bundle/release/android-release.aab`.
 - [ ] **you** — Install the release build on a real phone (`bundletool` or a release APK via

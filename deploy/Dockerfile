@@ -9,7 +9,8 @@ COPY . .
 RUN chmod +x gradlew && ./gradlew --no-daemon :server:fatJar -x test
 
 FROM eclipse-temurin:17-jre
-RUN useradd --system --create-home --shell /usr/sbin/nologin aether
+# curl is only here for the container healthcheck below; the server itself needs nothing.
+RUN apt-get update && apt-get install -y --no-install-recommends curl     && rm -rf /var/lib/apt/lists/*     && useradd --system --create-home --shell /usr/sbin/nologin aether
 WORKDIR /app
 COPY --from=build /src/server/build/libs/aether-tides-server-*.jar /app/server.jar
 USER aether

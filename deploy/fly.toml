@@ -1,0 +1,43 @@
+# Fly.io deployment for the Aether Tides match server.
+#
+# This is the no-VPS, no-DNS path: Fly builds deploy/Dockerfile, runs it, and gives the app a
+# hostname with a TLS certificate already on it. See deploy/HOSTING.md for the walkthrough.
+#
+# Rename `app` to something unique before the first deploy -- `fly launch` will offer to.
+
+app = "aether-tides"
+primary_region = "bom"        # Mumbai. Use the region closest to your players.
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "7788"
+  HEALTH_PORT = "7789"
+  MAX_PLAYERS = "400"
+  MAX_PER_IP = "6"
+  BOT_FALLBACK_SECONDS = "12"
+  ALLOW_GUESTS = "false"
+
+# The websocket endpoint. Fly terminates TLS, so the client connects to
+# wss://<app>.fly.dev and this receives a plain socket on 7788.
+[http_service]
+  internal_port = 7788
+  force_https = true
+  # A match server must not be put to sleep mid-game, so machines stay up.
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+# Health is on its own port so it can be probed without touching the game port.
+[[http_service.checks]]
+  grace_period = "30s"
+  interval = "15s"
+  method = "GET"
+  timeout = "4s"
+  path = "/healthz"
+  port = 7789
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"
