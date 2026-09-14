@@ -12,6 +12,7 @@ import com.polariz.aethertides.client.ui.Touch
 import com.polariz.aethertides.client.ui.Widgets
 import com.polariz.aethertides.shared.net.QueueMode
 import com.polariz.aethertides.shared.sim.Role
+import kotlin.math.sin
 
 /**
  * Saved settings and the local half of the account.
@@ -88,6 +89,10 @@ class Prefs(private val p: Preferences) {
         get() = p.getInteger("queue", QueueMode.QUICK)
         set(v) { p.putInteger("queue", v); p.flush() }
 
+    var audioOn: Boolean
+        get() = p.getBoolean("audio", true)
+        set(v) { p.putBoolean("audio", v); p.flush() }
+
     var showStats: Boolean
         get() = p.getBoolean("stats", false)
         set(v) { p.putBoolean("stats", v); p.flush() }
@@ -158,6 +163,9 @@ class AetherTides(
         prefs = Prefs(Gdx.app.getPreferences("aether-tides"))
         account = Account(prefs, Publish.SUPABASE_URL, Publish.SUPABASE_PUBLISHABLE_KEY)
 
+        Audio.start()
+        Audio.volume = if (prefs.audioOn) Audio.FULL_VOLUME else 0f
+
         Gdx.input.inputProcessor = touch
         Gdx.input.isCatchBackKey = true
         resizeHud(Gdx.graphics.width, Gdx.graphics.height)
@@ -188,7 +196,116 @@ class AetherTides(
     override fun resize(width: Int, height: Int) {
         if (width == 0 || height == 0) return
         resizeHud(width, height)
+        // The HUD is laid out in units derived from the real screen, so those units have to be
+        // re-derived when the real screen changes. Without this a rotation, a fold or a window
+        // drag leaves every panel sized for a screen that is no longer there.
+        art.resize(width, height)
         super.resize(width, height)
+    }
+
+    // -----------------------------------------------------------------------
+    // Screen transitions
+    // -----------------------------------------------------------------------
+
+    private enum class Curtain { IDLE, OUT, IN }
+
+    private var curtain = Curtain.IDLE
+    private var curtainT = 0f
+    private var pendingScreen: (() -> com.badlogic.gdx.Screen)? = null
+
+    /**
+     * Change screen behind a rising tide.
+     *
+     * The water comes up over the outgoing screen, the swap happens under full cover, and the
+     * water drains off the new one. It is the only transition in the game and it is the same
+     * everywhere, which is worth more than three clever ones.
+     *
+     * The new screen is built by [factory] at the moment of the swap rather than up front, so
+     * the outgoing screen keeps a live session for as long as it is still on screen.
+     */
+    fun transitionTo(factory: () -> com.badlogic.gdx.Screen) {
+        if (curtain == Curtain.OUT) return
+        pendingScreen = factory
+        curtain = Curtain.OUT
+        curtainT = 0f
+    }
+
+    /** Any direct screen swap still gets the drain-off half, so nothing ever hard-cuts. */
+    override fun setScreen(screen: com.badlogic.gdx.Screen?) {
+        super.setScreen(screen)
+        if (curtain == Curtain.IDLE) {
+            curtain = Curtain.IN
+            curtainT = 0f
+        }
+    }
+
+    override fun render() {
+        super.render()
+        val dt = Gdx.graphics.deltaTime.coerceAtMost(0.05f)
+        when (curtain) {
+            Curtain.OUT -> {
+                curtainT += dt / FLOOD_SECONDS
+                if (curtainT >= 1f) {
+                    val next = pendingScreen
+                    pendingScreen = null
+                    curtain = Curtain.IDLE          // so setScreen does not restart the drain
+                    if (next != null) super.setScreen(next())
+                    curtain = Curtain.IN
+                    curtainT = 0f
+                }
+            }
+            Curtain.IN -> {
+                curtainT += dt / DRAIN_SECONDS
+                if (curtainT >= 1f) curtain = Curtain.IDLE
+            }
+            Curtain.IDLE -> {}
+        }
+        if (curtain != Curtain.IDLE) drawCurtain()
+    }
+
+    private val curtainColor = com.badlogic.gdx.graphics.Color()
+
+    private fun drawCurtain() {
+        val level = when (curtain) {
+            Curtain.OUT -> Ease.outCubic(curtainT)
+            else -> 1f - Ease.inOutCubic(curtainT)
+        }
+        if (level <= 0.0005f) return
+        val sw = screenW
+        val sh = screenH
+        // Overshoot the top so a level of 1 genuinely covers the frame.
+        val y = level * (sh + sh * 0.12f)
+
+        val g = painter
+        g.begin(hudCamera)
+        curtainColor.set(Palette.ink); curtainColor.a = 0.995f
+        g.rect(0f, 0f, sw, y - sh * 0.09f, curtainColor)
+        // The water column just under the surface keeps its colour, as it does everywhere else.
+        val body = com.badlogic.gdx.graphics.Color(Palette.deepCalm)
+        body.a = 0.97f
+        g.rectV(0f, y - sh * 0.09f, sw, sh * 0.09f, curtainColor, body)
+
+        // The foam line, and the light it throws.
+        g.additive(true)
+        curtainColor.set(Palette.translucentCalm); curtainColor.a = 0.30f
+        g.glow(sw * 0.5f, y, sw * 0.62f, curtainColor)
+        for (i in 0 until 15) {
+            // Deterministic scatter: no allocation, no per-frame randomness to shimmer.
+            val f = i / 15f
+            val px = sw * (0.03f + f * 0.94f)
+            val bob = sin(f * 37.7f + level * 9f) * sh * 0.012f
+            curtainColor.set(Palette.foam); curtainColor.a = 0.5f
+            g.puff(px, y + bob, sw * 0.028f, curtainColor)
+        }
+        g.additive(false)
+        curtainColor.set(Palette.foam); curtainColor.a = 0.9f
+        g.rect(0f, y - art.uiScale * 1.5f, sw, art.uiScale * 3f, curtainColor)
+        g.end()
+    }
+
+    private companion object {
+        const val FLOOD_SECONDS = 0.30f
+        const val DRAIN_SECONDS = 0.42f
     }
 
     fun clear(r: Float = 0f, g: Float = 0f, b: Float = 0f) {
@@ -200,6 +317,7 @@ class AetherTides(
     val screenH: Float get() = Gdx.graphics.height.toFloat()
 
     override fun dispose() {
+        Audio.stop()
         screen?.dispose()
         painter.dispose()
         art.dispose()

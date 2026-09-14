@@ -4,6 +4,7 @@ import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.ScreenAdapter
 import com.badlogic.gdx.graphics.Color
 import com.polariz.aethertides.client.AetherTides
+import com.polariz.aethertides.client.Audio
 import com.polariz.aethertides.client.Cam
 import com.polariz.aethertides.client.EntityRenderer
 import com.polariz.aethertides.client.Fx
@@ -172,6 +173,11 @@ class PlayScreen(
             // sea reads: at 96 m a four-metre swell is a ripple, at 58 m it is a wall.
             baseWidth = if (session.role == Role.NAVIGATOR) 58f else 124f
         )
+        // The ear sits with the camera, and the sea and wind beds follow the same numbers
+        // the renderer draws from, so what you hear is what is on screen.
+        Audio.listener(cam.camera.position.x, cam.viewWidth)
+        Audio.bed(f.seaState, f.windSpeed, abs(f.shipVx), f.submerged)
+
         sky.update(dt, f.windSpeed)
         sea.sample(cam, session.world.ocean)
         sea.emit(dt, cam, fx, f.seaState)
@@ -460,6 +466,7 @@ class PlayScreen(
         when (e.kind) {
             EventKind.EXPLOSION -> {
                 val m = maxOf(0.4f, e.magnitude)
+                Audio.play(Audio.BOOM, e.x, gain = 0.7f + 0.5f * m, pitch = 1.15f - 0.25f * m)
                 fx.embers(e.x, e.y, 16f * m, (10 * m).toInt().coerceIn(6, 26), Palette.mineHorn)
                 fx.smoke(e.x, e.y, (4 * m).toInt().coerceIn(3, 10), Palette.ink, 3f)
                 fx.shock(e.x, e.y, 9f * m, Palette.mineHorn, 0.45f)
@@ -469,6 +476,7 @@ class PlayScreen(
             }
 
             EventKind.HULL_IMPACT -> {
+                Audio.play(Audio.THUMP, e.x, gain = 0.8f + e.magnitude * 0.03f)
                 fx.spray(e.x, e.y, -0.4f, 0.8f, 9f, 8)
                 fx.debris(e.x, e.y, 7f, 4, Palette.hullMid)
                 fx.text(e.x, e.y + 4f, "-%.0f".format(e.magnitude), Palette.danger)
@@ -476,11 +484,13 @@ class PlayScreen(
             }
 
             EventKind.SPLASH -> {
+                Audio.play(Audio.SPLASH, e.x, gain = 0.6f + e.magnitude * 0.5f)
                 fx.spray(e.x, e.y, 0f, 1f, 5f + e.magnitude * 5f, 5)
                 fx.foam(e.x, e.y, 0f, 2)
             }
 
             EventKind.LIGHTNING -> {
+                Audio.play(Audio.THUNDER, e.x, gain = 0.85f)
                 if (e.hasLine) fx.arc(e.x, e.y, e.x2, e.y2, Palette.bolt)
                 else fx.shock(e.x, e.y, 5f, Palette.bolt, 0.3f)
                 sky.lightning(0.5f)
@@ -489,11 +499,21 @@ class PlayScreen(
 
             EventKind.SPELL_CAST -> {
                 val kind = SpellKind.of(e.magnitude.toInt())
+                Audio.play(
+                    when (kind) {
+                        SpellKind.GALE -> Audio.CAST_GALE
+                        SpellKind.MIST -> Audio.CAST_MIST
+                        SpellKind.VOID -> Audio.CAST_VOID
+                        else -> Audio.CAST_BOLT
+                    },
+                    e.x, gain = 0.9f
+                )
                 fx.shock(e.x, e.y, Spells[kind].radius, Palette.spell(kind.id), 0.4f)
             }
 
             EventKind.SYNERGY -> {
                 val kind = SpellKind.of(e.magnitude.toInt())
+                Audio.play(Audio.FUSION, e.x, gain = 1f)
                 fx.shock(e.x, e.y, 26f, Palette.spell(kind.id), 0.8f)
                 fx.embers(e.x, e.y, 24f, 26, Palette.spell(kind.id))
                 sky.lightning(0.35f)
@@ -502,28 +522,38 @@ class PlayScreen(
             }
 
             EventKind.MAST_BREAK -> {
+                Audio.play(Audio.TIMBER, e.x, gain = 1f)
                 fx.debris(e.x, e.y, 12f, 12, Palette.mastWood)
                 banner("MAST GONE", "CARRY LESS SAIL", Palette.danger, 2.2f)
                 cam.addShake(0.7f)
             }
 
-            EventKind.MAST_REPAIR -> fx.text(e.x, e.y + 6f, "RIG RESTORED", Palette.good)
+            EventKind.MAST_REPAIR -> {
+                Audio.play(Audio.GOOD, e.x, gain = 0.5f)
+                fx.text(e.x, e.y + 6f, "RIG RESTORED", Palette.good)
+            }
 
             EventKind.BREACH -> {
+                Audio.play(Audio.BUBBLES, e.x, gain = 0.9f)
                 fx.bubbles(e.x, e.y, 10)
                 fx.text(e.x, e.y + 5f, "BREACH", Palette.bilgeBar)
                 cam.addShake(0.4f)
             }
 
             EventKind.CAPSIZE -> {
+                Audio.play(Audio.SPLASH_BIG, e.x, gain = 1f, pitch = 0.85f)
                 banner("KNOCKED DOWN", "GET HER BACK UP", Palette.danger, 2.2f)
                 fx.spray(e.x, e.y, 0f, 1f, 16f, 24)
                 cam.addShake(1.1f)
             }
 
-            EventKind.RIGHTED -> fx.text(e.x, e.y + 6f, "RIGHTED", Palette.good)
+            EventKind.RIGHTED -> {
+                Audio.play(Audio.GOOD, e.x, gain = 0.6f)
+                fx.text(e.x, e.y + 6f, "RIGHTED", Palette.good)
+            }
 
             EventKind.DEPLOY -> {
+                Audio.play(Audio.KNOCK, e.x, gain = 0.55f, pitch = 0.9f)
                 fx.shock(e.x, e.y, 6f, Palette.maliceBar, 0.5f)
                 if (session.role == Role.NAVIGATOR) {
                     fx.text(e.x, e.y + 5f, "!", Palette.maliceBar, 0.9f)
@@ -531,27 +561,32 @@ class PlayScreen(
             }
 
             EventKind.PICKUP -> {
+                Audio.play(Audio.PICKUP, e.x, gain = 0.7f)
                 fx.embers(e.x, e.y, 9f, 14, Palette.mote)
                 fx.text(e.x, e.y + 4f, "+%.0f".format(e.magnitude), Palette.mote)
             }
 
             EventKind.CORSAIR_DOWN -> {
+                Audio.play(Audio.CORSAIR_DIE, e.x, gain = 0.65f)
                 fx.embers(e.x, e.y, 11f, 10, Palette.corsair)
                 fx.smoke(e.x, e.y, 3, Palette.ink, 2f)
                 fx.debris(e.x, e.y, 6f, 3, Palette.corsairBomber)
             }
 
             EventKind.TENTACLE_GRAB -> {
+                Audio.play(Audio.RISE, e.x, gain = 0.8f, pitch = 1.3f)
                 banner("IT HAS US", "BURN IT OFF", Palette.tentacleSkin, 1.8f)
                 cam.addShake(0.6f)
             }
 
             EventKind.TENTACLE_BREAK -> {
+                Audio.play(Audio.CORSAIR_DIE, e.x, gain = 0.8f, pitch = 0.7f)
                 fx.embers(e.x, e.y, 12f, 14, Palette.tentacleSkin)
                 fx.text(e.x, e.y + 5f, "CUT FREE", Palette.good)
             }
 
             EventKind.KRAKEN_RISE -> {
+                Audio.play(Audio.RISE, e.x, gain = 1f)
                 banner("IT RISES", "TWENTY SECONDS", Palette.furyBar, 3f)
                 cam.addShake(1.6f)
                 sky.lightning(0.4f)
@@ -559,6 +594,7 @@ class PlayScreen(
 
             EventKind.ROGUE_WAVE -> {
                 val mine = e.magnitude > 0f
+                Audio.play(Audio.SWELL, e.x, gain = 1f, pitch = if (mine) 1.1f else 0.9f)
                 banner(
                     if (mine) "TSUNAMI" else "ROGUE WAVE",
                     if (mine) "RIDE IT" else "MEET IT BOW HIGH",
@@ -569,27 +605,39 @@ class PlayScreen(
 
             EventKind.SNARE -> {
                 val kind = SpellKind.of(e.magnitude.toInt())
+                Audio.playHere(Audio.SNARE_BIND, gain = 0.9f)
                 banner("${Spells[kind].title} BOUND", "EIGHT SECONDS", Palette.singularity, 2.2f)
             }
 
             EventKind.LEAGUE -> {
                 val n = e.magnitude.toInt()
+                Audio.playHere(Audio.CHIME, gain = 0.7f)
                 banner("LEAGUE $n", "${Config.LEAGUES - n + 1} TO RUN", Palette.accent, 1.7f)
             }
 
-            EventKind.AIRBORNE -> fx.foam(e.x, e.y, 0f, 4, 1.4f)
+            EventKind.AIRBORNE -> {
+                Audio.play(Audio.WHOOSH, e.x, gain = 0.5f)
+                fx.foam(e.x, e.y, 0f, 4, 1.4f)
+            }
 
             EventKind.LANDING -> {
                 val m = MathX.clamp(e.magnitude / 8f, 0.2f, 2.2f)
+                Audio.play(
+                    if (m > 1.2f) Audio.SPLASH_BIG else Audio.SPLASH,
+                    e.x, gain = 0.5f + 0.5f * m
+                )
                 fx.spray(e.x, e.y, 0f, 1f, 10f * m, (14 * m).toInt().coerceIn(6, 30))
                 fx.foam(e.x, e.y, 0f, (6 * m).toInt(), 1.5f)
                 cam.addShake(0.35f * m)
                 if (m > 1.2f) fx.text(e.x, e.y + 6f, "HARD LANDING", Palette.danger)
             }
 
-            EventKind.BRACE -> fx.shock(e.x, e.y, 11f, Palette.hullTrim, 0.5f)
+            EventKind.BRACE -> {
+                Audio.play(Audio.KNOCK, e.x, gain = 0.5f, pitch = 1.4f)
+                fx.shock(e.x, e.y, 11f, Palette.hullTrim, 0.5f)
+            }
 
-            EventKind.PUMP -> {}
+            EventKind.PUMP -> Audio.play(Audio.PUMP_GULP, e.x, gain = 0.45f)
         }
     }
 

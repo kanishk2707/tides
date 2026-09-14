@@ -81,8 +81,14 @@ abstract class Session(val seed: Long) {
     abstract val connected: Boolean
     abstract val statusText: String
 
-    /** Events published by the newest frame; drained by the renderer once each. */
-    private val pendingEvents = ArrayList<EventRec>(48)
+    /** Events waiting for the renderer. Drained once each, then reused. */
+    private val pendingEvents = ArrayList<EventRec>(64)
+    private val eventPool = ArrayList<EventRec>(64)
+
+    private fun pooledEvent(index: Int): EventRec {
+        while (eventPool.size <= index) eventPool.add(EventRec())
+        return eventPool[index]
+    }
 
     // --- prediction --------------------------------------------------------
     private val predInput = NavInput()
@@ -140,10 +146,20 @@ abstract class Session(val seed: Long) {
             renderTime = serverTime - Config.INTERP_DELAY
         }
 
-        pendingEvents.clear()
-        for (i in 0 until newer.eventCount) {
-            val src = newer.events[i]
-            val e = EventRec()
+        // Events are one-shot and are deliberately NOT interpolated, so they must be read
+        // from the frame as it was decoded: copyFrame zeroes eventCount on the interpolation
+        // buffers, and reading them back off `newer` -- as this did -- yields nothing, every
+        // time. That single line silently deleted every explosion, impact, arc, banner and
+        // damage number in the game.
+        //
+        // They also accumulate until the renderer drains them rather than being cleared per
+        // snapshot. Several snapshots can arrive between two rendered frames, which happens
+        // routinely offline where the session catches a whole batch of ticks up at once, and
+        // clearing per snapshot would throw all but the last batch away.
+        for (i in 0 until f.eventCount) {
+            if (pendingEvents.size >= 64) break
+            val src = f.events[i]
+            val e = pooledEvent(pendingEvents.size)
             e.kind = src.kind; e.x = src.x; e.y = src.y
             e.x2 = src.x2; e.y2 = src.y2
             e.magnitude = src.magnitude; e.hasLine = src.hasLine

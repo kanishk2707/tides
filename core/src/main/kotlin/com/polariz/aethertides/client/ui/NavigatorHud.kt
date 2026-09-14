@@ -3,6 +3,7 @@ package com.polariz.aethertides.client.ui
 import com.badlogic.gdx.graphics.Color
 import com.polariz.aethertides.client.Art
 import com.polariz.aethertides.client.Cam
+import com.polariz.aethertides.client.Icons
 import com.polariz.aethertides.client.Painter
 import com.polariz.aethertides.client.Palette
 import com.polariz.aethertides.client.net.Session
@@ -161,118 +162,158 @@ class NavigatorHud(
     }
 
     // --- panels ------------------------------------------------------------
-
-    /**
-     * Row helper.
-     *
-     * Every readout in this HUD is a label on the left and a meter on the right, sharing one
-     * baseline. Laying them out through one function is what stops the panels drifting out of
-     * alignment as numbers are added -- which is exactly what happened the first time these
-     * were placed by hand.
-     */
-    private fun meterRow(
-        g: Painter, label: String, x: Float, barY: Float, labelW: Float, barW: Float,
-        barH: Float, value: Float, tint: Color, warn: Float = -1f, suffix: String? = null,
-        suffixTint: Color = Palette.textFaint
-    ) {
-        val textY = barY + barH * 0.5f + art.small.capHeight * 0.5f
-        g.text(art.small, label, x, textY, Palette.textDim)
-        w.bar(g, x + labelW, barY, barW, barH, value, tint, null, warn, time)
-        if (suffix != null) {
-            g.text(art.small, suffix, x + labelW + barW + 10f * art.uiScale, textY, suffixTint)
-        }
-    }
+    //
+    // Every panel here sizes itself from the metrics of the fonts it is about to draw with.
+    // The previous version stepped its rows by hand-picked scaled pixels -- 26, then 24, then
+    // 24 -- which are smaller than the real line height of the label font at *every* ui scale,
+    // so every label sat on the bar above it and the speed readout hung out of the bottom of
+    // its own panel. Measuring costs one GlyphLayout and removes the entire class of bug.
 
     private fun drawVitals(g: Painter, f: SnapshotFrame, sw: Float, sh: Float, s: Float) {
-        val pw = 320f * s
-        val ph = 140f * s
-        val x = 16f * s
-        val y = sh - ph - 14f * s
-        w.panel(g, x, y, pw, ph)
+        val u = art.unit
+        val inset = u * 1.7f
+        val pw = art.px(300f)
+        val barH = art.px(13f)
+        val pitch = maxOf(barH + u * 0.95f, art.small.lineHeight * 1.04f)
+        val headH = art.hudLarge.capHeight + u * 1.5f
+        val ph = inset * 2f + headH + u * 1.6f + pitch * 4f
+        val x = u * 1.8f
+        val y = sh - ph - u * 1.8f
+        w.panel(g, x, y, pw, ph, tint = Palette.aetherBar)
 
-        val inset = 14f * s
-        val labelW = 78f * s
-        val barW = pw - inset * 2 - labelW
-        val barH = 15f * s
+        var top = y + ph - inset
 
-        meterRow(g, "HULL", x + inset, y + ph - 30f * s, labelW, barW, barH,
-            f.hull / Config.MAX_HULL, Palette.hullBar, warn = 0.3f)
-        meterRow(g, "RIG", x + inset, y + ph - 56f * s, labelW, barW * 0.68f, barH * 0.8f,
-            f.mast / Config.MAX_MAST, Palette.mastBar)
-        // Bilge reads backwards on purpose: a full bar is a sinking ship.
-        meterRow(g, "WATER", x + inset, y + ph - 80f * s, labelW, barW * 0.68f, barH * 0.8f,
-            f.bilge / Config.MAX_BILGE, Palette.bilgeBar,
-            suffix = if (f.leaks > 0) "${f.leaks}x" else null,
-            suffixTint = Palette.danger)
-        meterRow(g, "AETHER", x + inset, y + ph - 104f * s, labelW, barW, barH,
-            f.aether / Config.MAX_AETHER, Palette.aetherBar)
-
-        // Speed, large: it is the number that matters most, so it gets its own line.
+        // Speed leads the panel. It is the number the whole role is about, so it is the first
+        // thing the eye lands on in the first thing it reads.
         val knots = abs(f.shipVx) / 0.5144f
-        g.text(art.hudLarge, "%.0f".format(knots), x + inset, y + 30f * s, Palette.textBright)
-        g.text(art.small, "KNOTS",
-            x + inset + g.textWidth(art.hudLarge, "%.0f".format(knots)) + 6f * s,
-            y + 20f * s, Palette.textDim)
-
+        val kStr = "%.0f".format(knots)
+        val headMid = top - headH * 0.5f
+        g.text(art.hudLarge, kStr, x + inset, headMid + art.hudLarge.capHeight * 0.5f, Palette.textBright)
+        g.text(
+            art.small, "KNOTS",
+            x + inset + g.textWidth(art.hudLarge, kStr) + u * 0.7f,
+            headMid + art.small.capHeight * 0.5f, Palette.textDim
+        )
         if (f.surf > 0.35f) {
-            c.set(Palette.tsunami)
-            c.a = MathX.clamp01(f.surf)
-            g.textRight(art.hud, "SURFING", x + pw - inset, y + 28f * s, c)
+            c.set(Palette.tsunami); c.a = MathX.clamp01(f.surf)
+            g.textRight(art.hud, "SURFING", x + pw - inset, headMid + art.hud.capHeight * 0.5f, c)
         } else if (f.airborne) {
-            g.textRight(art.hud, "AIRBORNE", x + pw - inset, y + 28f * s, Palette.aetherBar)
+            g.textRight(art.hud, "AIRBORNE", x + pw - inset, headMid + art.hud.capHeight * 0.5f, Palette.aetherBar)
         }
+        top -= headH + u * 0.8f
+        w.rule(g, x + inset, top, pw - inset * 2f, Palette.aetherBar, 0.3f)
+        top -= u * 0.8f
+
+        // One label column and one bar column, both measured, so the four meters line up and
+        // all end on the same edge instead of the ragged 0.68-width stumps they used to be.
+        val labelW = maxOf(
+            g.textWidth(art.small, "HULL"), g.textWidth(art.small, "RIG"),
+            g.textWidth(art.small, "WATER"), g.textWidth(art.small, "AETHER")
+        ) + u * 1.1f
+        val readoutW = g.textWidth(art.small, "88x") + u
+        val barW = pw - inset * 2f - labelW - readoutW
+
+        fun meter(label: String, v: Float, tint: Color, warn: Float = -1f, readout: String? = null,
+                  readoutTint: Color = Palette.danger) {
+            val barY = top - pitch + (pitch - barH) * 0.5f
+            w.meterRow(
+                g, art.small, label, x + inset, barY, labelW, barW, barH,
+                v, tint, warn, time, readout, readoutTint
+            )
+            top -= pitch
+        }
+
+        meter("HULL", f.hull / Config.MAX_HULL, Palette.hullBar, warn = 0.3f)
+        meter("RIG", f.mast / Config.MAX_MAST, Palette.mastBar)
+        // Bilge reads backwards on purpose: a full bar is a sinking ship.
+        meter(
+            "WATER", f.bilge / Config.MAX_BILGE, Palette.bilgeBar,
+            readout = if (f.leaks > 0) "${f.leaks}x" else null
+        )
+        meter("AETHER", f.aether / Config.MAX_AETHER, Palette.aetherBar)
     }
 
     private fun drawVoyage(g: Painter, f: SnapshotFrame, sw: Float, sh: Float, s: Float) {
-        val pw = 400f * s
-        val ph = 66f * s
+        val u = art.unit
+        val inset = u * 1.8f
+        val pw = art.px(360f)
+        val segH = art.px(11f)
+        val rowH = art.hud.lineHeight
+        val ph = inset * 2f + rowH + u * 0.9f + segH
         val x = (sw - pw) * 0.5f
-        val y = sh - ph - 14f * s
-        w.panel(g, x, y, pw, ph)
+        val y = sh - ph - u * 1.8f
+        w.panel(g, x, y, pw, ph, tint = Palette.accent)
 
-        val inset = 16f * s
         val progress = MathX.clamp01(f.shipX / Config.COURSE_LENGTH)
-
         val league = MathX.clampI((progress * Config.LEAGUES).toInt() + 1, 1, Config.LEAGUES)
-        g.text(art.small, "LEAGUE %d OF %d".format(league, Config.LEAGUES),
-            x + inset, y + ph - 12f * s, Palette.textDim)
 
+        val rowY = y + ph - inset - rowH
+        val mid = rowY + rowH * 0.5f
+        g.text(
+            art.small, "LEAGUE %d OF %d".format(league, Config.LEAGUES),
+            x + inset, mid + art.small.capHeight * 0.5f, Palette.textDim
+        )
         val remaining = maxOf(0f, Config.MATCH_TIME_LIMIT - f.time)
-        c.set(if (remaining < 45f) Palette.danger else Palette.textBright)
-        g.textRight(art.hud, "%d:%02d".format((remaining / 60f).toInt(), (remaining % 60f).toInt()),
-            x + pw - inset, y + ph - 8f * s, c)
+        val urgent = remaining < 45f
+        c.set(if (urgent) Palette.danger else Palette.textBright)
+        if (urgent) c.a = 0.7f + 0.3f * kotlin.math.sin(time * 6f)
+        g.textRight(
+            art.hud, "%d:%02d".format((remaining / 60f).toInt(), (remaining % 60f).toInt()),
+            x + pw - inset, mid + art.hud.capHeight * 0.5f, c
+        )
 
-        w.segments(g, x + inset, y + 14f * s, pw - inset * 2, 13f * s,
-            Config.LEAGUES, progress, Palette.accent)
+        w.segments(g, x + inset, y + inset, pw - inset * 2f, segH, Config.LEAGUES, progress, Palette.accent)
     }
 
     private fun drawConditions(
         g: Painter, f: SnapshotFrame, session: Session, sw: Float, sh: Float, s: Float
     ) {
-        val pw = 250f * s
-        val ph = 92f * s
-        val x = sw - pw - 16f * s
-        val y = sh - ph - 14f * s
-        w.panel(g, x, y, pw, ph)
+        val u = art.unit
+        val inset = u * 1.7f
+        val pw = art.px(230f)
+        val pitch = art.hud.lineHeight * 1.02f
+        val statusH = art.small.lineHeight
+        val ph = inset * 2f + pitch * 3f + u * 0.9f + statusH
+        val x = sw - pw - u * 1.8f
+        val y = sh - ph - u * 1.8f
+        w.panel(g, x, y, pw, ph, tint = Palette.accent)
 
-        val inset = 14f * s
-        val rowH = 26f * s
+        var top = y + ph - inset
+        fun row(label: String, value: String, tint: Color) {
+            val mid = top - pitch * 0.5f
+            g.text(art.small, label, x + inset, mid + art.small.capHeight * 0.5f, Palette.textDim)
+            g.textRight(art.hud, value, x + pw - inset, mid + art.hud.capHeight * 0.5f, tint)
+            top -= pitch
+        }
 
-        g.text(art.small, "SEA", x + inset, y + ph - 12f * s, Palette.textDim)
         c.set(Palette.textBright).lerp(Palette.danger, MathX.smoothstep(0.5f, 1f, f.seaState))
-        g.textRight(art.hud, beaufortName(f.seaState), x + pw - inset, y + ph - 8f * s, c)
+        row("SEA", beaufortName(f.seaState), c)
 
-        g.text(art.small, "WIND", x + inset, y + ph - 12f * s - rowH, Palette.textDim)
-        val windArrow = if (f.windDir >= 0f) "→" else "←"
-        g.textRight(art.hud, "%s %.0f".format(windArrow, f.windSpeed),
-            x + pw - inset, y + ph - 8f * s - rowH,
-            if (f.windDir >= 0f) Palette.good else Palette.danger)
+        // Wind gets a drawn arrowhead rather than a typed one. The faces here are Latin and
+        // have no arrow glyphs -- asking for one is how the action buttons ended up blank.
+        val following = f.windDir >= 0f
+        val windTint = if (following) Palette.good else Palette.danger
+        run {
+            val mid = top - pitch * 0.5f
+            g.text(art.small, "WIND", x + inset, mid + art.small.capHeight * 0.5f, Palette.textDim)
+            val value = "%.0f".format(f.windSpeed)
+            g.textRight(art.hud, value, x + pw - inset, mid + art.hud.capHeight * 0.5f, windTint)
+            val ax = x + pw - inset - g.textWidth(art.hud, value) - u * 1.4f
+            val ah = art.hud.capHeight * 0.42f
+            val dir = if (following) 1f else -1f
+            c.set(windTint)
+            g.tri(ax - ah * dir, mid + ah, c, ax - ah * dir, mid - ah, c, ax + ah * dir, mid, c)
+            top -= pitch
+        }
 
-        g.text(art.small, "SWELL", x + inset, y + ph - 12f * s - rowH * 2, Palette.textDim)
-        g.textRight(art.hud, "%.1f m".format(session.world.ocean.significantHeight()),
-            x + pw - inset, y + ph - 8f * s - rowH * 2, Palette.textBright)
+        row("SWELL", "%.1f m".format(session.world.ocean.significantHeight()), Palette.textBright)
 
-        g.textRight(art.small, session.statusText, x + pw - inset, y - 14f * s, Palette.textFaint)
+        top -= u * 0.4f
+        w.rule(g, x + inset, top, pw - inset * 2f, Palette.accent, 0.25f)
+        g.textRight(
+            art.small, session.statusText, x + pw - inset,
+            y + inset + art.small.capHeight, Palette.textFaint
+        )
     }
 
     private fun drawHelm(g: Painter, f: SnapshotFrame, sw: Float, sh: Float, s: Float, playing: Boolean) {
@@ -293,35 +334,49 @@ class NavigatorHud(
 
         // A permanent readout of the helm, bottom left, so the state stays legible when the
         // thumb is lifted off the pad.
+        //
+        // Laid out from the panel's top edge downward by measured row height. The previous
+        // version mixed two conventions -- some rows measured from the top, the caption from
+        // the bottom -- and the caption landed on top of the row above it.
+        val inset = 12f * s
+        val rowH = 26f * s
+        val barH = 11f * s
+        val labelW = 58f * s
+        val bw = 178f * s
+        val bh = inset * 2f + rowH * 2f + art.small.lineHeight
         val bx = 20f * s
         val by = 20f * s
-        val bw = 172f * s
-        val bh = 78f * s
         w.panel(g, bx, by, bw, bh, 0.85f)
 
-        val inset = 12f * s
-        val labelW = 58f * s
         val barW = bw - inset * 2 - labelW
+        val barX = bx + inset + labelW
 
-        var ty = by + bh - 26f * s
-        g.text(art.small, "SAIL", bx + inset, ty + 11f * s, Palette.textDim)
-        w.bar(g, bx + inset + labelW, ty, barW, 11f * s, trim, Palette.sailCloth)
+        // Row one: sail.
+        var barY = by + bh - inset - barH
+        g.text(art.small, "SAIL", bx + inset, barY + barH * 0.5f + art.small.capHeight * 0.5f,
+            Palette.textDim)
+        w.bar(g, barX, barY, barW, barH, trim, Palette.sailCloth)
 
-        ty = by + bh - 52f * s
-        g.text(art.small, "WEIGHT", bx + inset, ty + 11f * s, Palette.textDim)
-        // Weight is a centred needle, not a fill: it runs from aft through level to forward.
+        // Row two: crew weight, as a centred needle rather than a fill -- it runs from aft
+        // through level to forward, so a bar filling from the left would read as a quantity.
+        barY -= rowH
+        g.text(art.small, "WEIGHT", bx + inset, barY + barH * 0.5f + art.small.capHeight * 0.5f,
+            Palette.textDim)
         c.set(Palette.ink); c.a = 0.75f
-        g.rect(bx + inset + labelW, ty, barW, 11f * s, c)
+        g.rect(barX, barY, barW, barH, c)
         c.set(Palette.panelEdge); c.a = 0.5f
-        g.line(bx + inset + labelW + barW * 0.5f, ty,
-            bx + inset + labelW + barW * 0.5f, ty + 11f * s, 1f, c)
+        g.line(barX + barW * 0.5f, barY, barX + barW * 0.5f, barY + barH, 1f, c)
         c.set(Palette.hullTrim); c.a = 1f
-        g.rect(bx + inset + labelW + barW * 0.5f + lean * barW * 0.45f - 3f * s, ty - 2f * s,
-            6f * s, 15f * s, c)
+        g.rect(barX + barW * 0.5f + lean * barW * 0.45f - 3f * s, barY - 2f * s, 6f * s,
+            barH + 4f * s, c)
 
+        // Caption, on its own line under both rows.
         c.set(Palette.textFaint)
-        g.text(art.small, if (lean > 0.15f) "FORWARD" else if (lean < -0.15f) "AFT" else "LEVEL",
-            bx + inset, by + 18f * s, c)
+        g.text(
+            art.small,
+            if (lean > 0.15f) "WEIGHT FORWARD" else if (lean < -0.15f) "WEIGHT AFT" else "TRIMMED LEVEL",
+            bx + inset, by + inset + art.small.lineHeight * 0.85f, c
+        )
     }
 
     private fun drawWorkings(
@@ -340,13 +395,11 @@ class NavigatorHud(
             val snared = f.snaredSpell == kind.id
             val fired = w.actionButton(
                 g, Id.SPELL0 + kind.id, cx, cy, r,
-                def.glyph, def.title, Palette.spell(kind.id),
-                cdFrac, f.aether >= def.cost, selectedSpell == kind, snared
+                Icons.spell(kind), def.title, Palette.spell(kind.id),
+                cdFrac, f.aether >= def.cost, selectedSpell == kind, snared,
+                cost = "%.0f".format(def.cost)
             )
             if (fired && playing) selectedSpell = kind
-
-            // Cost pip under the glyph.
-            g.textCentered(art.small, "%.0f".format(def.cost), cx, cy - r * 0.62f, Palette.textFaint)
             cx += r * 2 + gap
         }
 
@@ -355,13 +408,13 @@ class NavigatorHud(
         val sy = cy + r + sr + 18f * s
         val braceCd = MathX.clamp01(f.braceCooldown / Config.BRACE_COOLDOWN)
         if (w.actionButton(
-                g, Id.BRACE, sw - 26f * s - sr, sy, sr, "◘", "BRACE",
+                g, Id.BRACE, sw - 26f * s - sr, sy, sr, Icons.BRACE, "BRACE",
                 Palette.hullTrim, braceCd, f.aether >= Config.BRACE_COST, f.braced
             ) && playing
         ) braceRequested = true
 
         if (w.actionButton(
-                g, Id.PUMP, sw - 26f * s - sr * 3f - 18f * s, sy, sr, "≡", "PUMP",
+                g, Id.PUMP, sw - 26f * s - sr * 3f - 18f * s, sy, sr, Icons.PUMP, "PUMP",
                 Palette.bilgeBar, 0f, true, pump
             ) && playing
         ) pump = !pump

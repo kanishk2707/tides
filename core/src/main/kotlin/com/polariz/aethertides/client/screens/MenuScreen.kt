@@ -5,6 +5,7 @@ import com.badlogic.gdx.Input
 import com.badlogic.gdx.ScreenAdapter
 import com.badlogic.gdx.graphics.Color
 import com.polariz.aethertides.client.AetherTides
+import com.polariz.aethertides.client.Audio
 import com.polariz.aethertides.client.Cam
 import com.polariz.aethertides.client.Painter
 import com.polariz.aethertides.client.Palette
@@ -494,6 +495,18 @@ class MenuScreen(private val app: AetherTides) : ScreenAdapter() {
             g.text(app.art.small, app.serverUrl, x + 8f * s, y - 20f * s, c)
             y -= bh + 30f * s
         }
+
+        val soundOn = app.prefs.audioOn
+        if (app.widgets.button(
+                g, 45, x, y, bw, bh,
+                if (soundOn) "SOUND: ON" else "SOUND: OFF",
+                app.art.small, if (soundOn) Palette.accent else Palette.panelEdge
+            )
+        ) {
+            app.prefs.audioOn = !soundOn
+            Audio.volume = if (app.prefs.audioOn) Audio.FULL_VOLUME else 0f
+        }
+        y -= bh + 12f * s
 
         val statsOn = app.prefs.showStats
         if (app.widgets.button(

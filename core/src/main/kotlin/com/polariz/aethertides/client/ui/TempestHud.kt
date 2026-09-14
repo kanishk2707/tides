@@ -3,6 +3,7 @@ package com.polariz.aethertides.client.ui
 import com.badlogic.gdx.graphics.Color
 import com.polariz.aethertides.client.Art
 import com.polariz.aethertides.client.Cam
+import com.polariz.aethertides.client.Icons
 import com.polariz.aethertides.client.Painter
 import com.polariz.aethertides.client.Palette
 import com.polariz.aethertides.client.SeaRenderer
@@ -302,7 +303,7 @@ class TempestHud(
         val furyReady = f.fury >= Config.MAX_FURY - 0.5f && !f.krakenActive
         if (w.actionButton(
                 g, Id.FURY, x + ww * 0.5f, y - 60f * s, 38f * s,
-                Deployables[DeployKind.KRAKEN].glyph, "FURY", Palette.furyBar,
+                Icons.deploy(DeployKind.KRAKEN), "FURY", Palette.furyBar,
                 if (furyReady) 0f else 1f - f.fury / Config.MAX_FURY, furyReady, false
             ) && playing && furyReady
         ) {
@@ -336,7 +337,8 @@ class TempestHud(
             val afford = f.malice >= d.cost
             val fired = w.actionButton(
                 g, Id.CARD0 + kind.id, cx, cy, r,
-                d.glyph, d.short, Palette.maliceBar, cd, afford, selected == kind
+                Icons.deploy(kind), d.short, Palette.maliceBar, cd, afford, selected == kind,
+                cost = "%.0f".format(d.cost)
             )
             if (fired && playing) {
                 selected = kind
@@ -373,7 +375,7 @@ class TempestHud(
             val def = Spells[kind]
             if (w.actionButton(
                     g, Id.SNARE0 + kind.id, cx, y + 54f * s, r,
-                    def.glyph, def.title, Palette.spell(kind.id), 0f, true, false
+                    Icons.spell(kind), def.title, Palette.spell(kind.id), 0f, true, false
                 )
             ) {
                 session.sendCommand(Command.SNARE_PICK, kind.id, 0f, 0f)

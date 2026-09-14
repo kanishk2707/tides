@@ -57,13 +57,24 @@ class Art : Disposable {
     var uiScale = 1f
         private set
 
+    /**
+     * The spacing unit, in real pixels.
+     *
+     * Every gap, inset and rhythm in the UI is a multiple of this, which is the cheapest way
+     * to make a dozen separately written panels look like one designer drew them.
+     */
+    val unit: Float get() = 8f * uiScale
+
+    /** Scaled pixels. `art.px(56f)` is "56 at the design size, whatever this screen is". */
+    fun px(v: Float): Float = v * uiScale
+
+    private var fontEdge = 0f
+
     fun load() {
         val h = Gdx.graphics.height.toFloat()
         val w = Gdx.graphics.width.toFloat()
         val shortEdge = min(w, h)
-        // Tuned against a 1080p phone in landscape; clamped so very small and very large
-        // panels both stay usable.
-        uiScale = MathX.clamp(shortEdge / 1080f, 0.55f, 2.0f)
+        uiScale = scaleFor(shortEdge)
 
         white = region(Pixmap(2, 2, Pixmap.Format.RGBA8888).apply {
             setColor(Color.WHITE); fill()
@@ -78,11 +89,39 @@ class Art : Disposable {
         loadFonts(shortEdge)
     }
 
+    // Tuned against a 1080p phone in landscape; clamped so very small and very large panels
+    // both stay usable.
+    private fun scaleFor(shortEdge: Float): Float =
+        MathX.clamp(shortEdge / 1080f, 0.55f, 2.0f)
+
+    /**
+     * React to a real resize.
+     *
+     * This used to be missing entirely: [uiScale] was derived once at launch and never again,
+     * so an Android rotation, a fold, or a desktop window drag left the whole HUD laid out for
+     * a screen that no longer existed -- panels sized for a phone on a tablet, text rasterised
+     * at the wrong size. A fixed-size screenshot harness hides it perfectly, which is how it
+     * survived.
+     *
+     * Fonts are only re-rasterised when the short edge has moved enough to matter, because
+     * FreeType generation is not free and a window being dragged fires this every frame.
+     */
+    fun resize(width: Int, height: Int) {
+        if (width <= 0 || height <= 0) return
+        val shortEdge = min(width.toFloat(), height.toFloat())
+        uiScale = scaleFor(shortEdge)
+        if (abs(shortEdge - fontEdge) < fontEdge * 0.08f) return
+        fonts.forEach { it.dispose() }
+        fonts.clear()
+        loadFonts(shortEdge)
+    }
+
     // -----------------------------------------------------------------------
     // Fonts
     // -----------------------------------------------------------------------
 
     private fun loadFonts(shortEdge: Float) {
+        fontEdge = shortEdge
         // Rasterise at the size the screen will actually use, so glyphs stay crisp instead of
         // being a scaled-up atlas.
         val base = MathX.clamp(shortEdge / 26f, 16f, 64f)
@@ -114,7 +153,11 @@ class Art : Disposable {
         p.shadowColor = Color(0f, 0f, 0f, 0.55f)
         p.minFilter = Texture.TextureFilter.Linear
         p.magFilter = Texture.TextureFilter.Linear
-        p.characters = FreeTypeFontGenerator.DEFAULT_CHARS + "·•←→↑↓×÷≈≋⟳✵☇⚡●▲✹⬟◌❦➤☁☢☠√°"
+        // Only characters the bundled faces actually contain. The spell and hazard symbols
+        // used to be listed here and silently came out blank, because Cinzel Decorative and
+        // Rajdhani are Latin faces with no dingbats in them -- every action button in the game
+        // was an empty disc. Those symbols are drawn now; see Icons.
+        p.characters = FreeTypeFontGenerator.DEFAULT_CHARS + "·×°"
         val font = generator.generateFont(p)
         generator.dispose()
         font.setUseIntegerPositions(false)

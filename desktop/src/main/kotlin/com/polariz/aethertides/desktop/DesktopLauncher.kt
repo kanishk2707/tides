@@ -19,7 +19,11 @@ import java.io.File
  *   --shot DIR           write PNGs and exit (implies a fixed frame budget)
  *   --frames a,b,c       which frames to capture
  *   --size WxH           window size
+ *   --input SCRIPT       replay pointer events, so the controls can actually be tried
  */
+private const val MIN_W = 900
+private const val MIN_H = 450
+
 fun main(args: Array<String>) {
     var role: Role? = null
     var shotDir: String? = null
@@ -30,6 +34,7 @@ fun main(args: Array<String>) {
     var difficulty = 0.65f
     var server: String? = null
     var name = "Harness"
+    var input: String? = null
 
     var i = 0
     while (i < args.size) {
@@ -54,14 +59,18 @@ fun main(args: Array<String>) {
             "--difficulty" -> { difficulty = args.getOrNull(i + 1)?.toFloatOrNull() ?: difficulty; i++ }
             "--online" -> { server = args.getOrNull(i + 1); i++ }
             "--name" -> { name = args.getOrNull(i + 1) ?: name; i++ }
+            "--input" -> { input = args.getOrNull(i + 1); i++ }
         }
         i++
     }
 
     val config = Lwjgl3ApplicationConfiguration().apply {
         setTitle("Aether Tides")
-        setWindowedMode(width, height)
-        setWindowSizeLimits(900, 450, 4096, 2160)
+        // The minimum has to be honoured here rather than left to the window manager: asking
+        // for a window smaller than the limit gets a clamped window but an unclamped
+        // backbuffer, and the game then renders into a corner of it with black on two sides.
+        setWindowedMode(maxOf(width, MIN_W), maxOf(height, MIN_H))
+        setWindowSizeLimits(MIN_W, MIN_H, 4096, 2160)
         useVsync(shotDir == null)
         // Capture runs at a real 60 Hz too: the game is driven by wall-clock delta, so letting
         // it free-run would make "frame 600" mean a different moment every time.
@@ -72,7 +81,8 @@ fun main(args: Array<String>) {
 
     val game = AetherTides(Platform.Desktop, role, difficulty, server, name)
     if (shotDir != null) {
-        Lwjgl3Application(ShotHarness(game, File(shotDir), frames, label), config)
+        val script = input?.let { ShotHarness.parse(it) } ?: emptyList()
+        Lwjgl3Application(ShotHarness(game, File(shotDir), frames, label, script), config)
     } else {
         Lwjgl3Application(game, config)
     }
