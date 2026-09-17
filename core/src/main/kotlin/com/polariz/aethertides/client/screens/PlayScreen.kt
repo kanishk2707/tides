@@ -229,12 +229,22 @@ class PlayScreen(
             )
         }
         resultAlpha = MathX.approach(resultAlpha, if (resultShown) 1f else 0f, 4f, dt)
-        app.touch.blocked = resultShown || tempestHud.modalOpen
+        // Whatever is on top owns input. The buttons on the round card and on the snare
+        // picker are *inside* these ranges, which is the whole point: a modal that swallows its
+        // own buttons is a dead end, and both of these were exactly that.
+        app.touch.modalIds = when {
+            resultShown -> RESULT_IDS
+            tempestHud.modalOpen -> tempestHud.modalIds
+            else -> null
+        }
 
         if (Gdx.input.isKeyJustPressed(com.badlogic.gdx.Input.Keys.BACK) ||
             Gdx.input.isKeyJustPressed(com.badlogic.gdx.Input.Keys.ESCAPE)
         ) {
-            quit()
+            // Back closes what is on top before it leaves the match. Quitting a match outright
+            // on the first back press -- from inside a picker the player opened by accident --
+            // is a forfeit they never asked for.
+            if (tempestHud.modalOpen) tempestHud.cancelModal() else quit()
         }
     }
 
@@ -263,7 +273,7 @@ class PlayScreen(
         ship.draw(g, f, sea, ambient, f.seaState)
         entities.drawSpells(g, f, sea)
 
-        if (session.role == Role.NAVIGATOR) navHud.drawCastMarker(g, f, cam)
+        if (session.role == Role.NAVIGATOR) navHud.drawCastMarker(g, f, cam, sea)
 
         fx.draw(g, cam.left, cam.right)
         sea.drawForeground(g, cam, f.seaState, ambient)
@@ -273,6 +283,9 @@ class PlayScreen(
         g.begin(app.hudCamera)
         val sw = app.screenW
         val sh = app.screenH
+
+        // Damage numbers and callouts sit over the world but are sized in pixels.
+        fx.drawLabels(g, cam, sw, sh)
 
         if (session.role == Role.NAVIGATOR) navHud.draw(g, f, session, cam, sw, sh)
         else tempestHud.draw(g, f, session, cam, sw, sh)
@@ -642,7 +655,15 @@ class PlayScreen(
     }
 
     override fun dispose() {
+        // A modal gate belongs to this screen, not to the app. Leaving it set would block
+        // every control on whatever screen comes next.
+        app.touch.modalIds = null
         // Art and painter belong to the app, not the screen. The session does not.
         session.leave()
+    }
+
+    private companion object {
+        /** Ids of the buttons on the round card. Kept together so the modal gate can name them. */
+        val RESULT_IDS = 900..909
     }
 }

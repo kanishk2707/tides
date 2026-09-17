@@ -40,6 +40,9 @@ class SkyRenderer(private val art: Art, seed: Long) {
     private val cLow = Color()
     private val cCloud = Color()
     private val cTmp = Color()
+    private val cGlitter0 = Color()
+    private val cGlitter1 = Color()
+    private val cMidSky = Color()
 
     init {
         repeat(26) {
@@ -88,7 +91,7 @@ class SkyRenderer(private val art: Art, seed: Long) {
 
         // Two bands rather than one, so most of the gradient happens near the horizon, which
         // is where it happens in a real sky.
-        val midSky = Color(cLow).lerp(cHigh, 0.55f)
+        val midSky = cMidSky.set(cLow).lerp(cHigh, 0.55f)
         g.rectV(l, hz, w, (cam.top - hz) * 0.42f, cLow, midSky)
         g.rectV(l, hz + (cam.top - hz) * 0.42f, w, (cam.top - hz) * 0.62f, midSky, cHigh)
 
@@ -121,10 +124,18 @@ class SkyRenderer(private val art: Art, seed: Long) {
         g.glow(sx, sy, cam.viewWidth * 0.080f, Palette.alpha(Palette.sunGlow, 0.20f * visible))
         g.glow(sx, sy, cam.viewWidth * 0.020f, Palette.alpha(Palette.sunCore, 0.85f * visible))
         // The glitter path it lays across the water, brightest at the waterline.
+        //
+        // Both ends are written into their own colours on purpose. Palette.alpha returns one
+        // shared instance, so calling it twice in a single argument list hands the same object
+        // to both parameters and the gradient collapses to a flat band with a hard bottom edge
+        // -- which is what this did. (And they are *these* two scratch colours, not cLow and
+        // cHigh: those hold the sky gradient, which the haze band reads after this returns.)
+        cGlitter0.set(Palette.sunGlow); cGlitter0.a = 0f
+        cGlitter1.set(Palette.sunGlow); cGlitter1.a = 0.06f * visible
         g.rectV(
             sx - cam.viewWidth * 0.11f, horizonY - cam.viewHeight * 0.45f,
             cam.viewWidth * 0.22f, cam.viewHeight * 0.45f,
-            Palette.alpha(Palette.sunGlow, 0f), Palette.alpha(Palette.sunGlow, 0.06f * visible)
+            cGlitter0, cGlitter1
         )
         g.additive(false)
     }

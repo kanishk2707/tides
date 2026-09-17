@@ -50,6 +50,16 @@ class LocalSession(
     private val roundScore = floatArrayOf(-1f, -1f)
     private var lastAckSeq = 0
 
+    private companion object {
+        /**
+         * Harness-only: `-Daether.dev.timescale=N` runs practice N times faster, so a sweep can
+         * reach the round card and the series end in seconds instead of minutes. Read once,
+         * defaults to 1, and cannot be set from inside a shipped app.
+         */
+        val TIME_SCALE: Float =
+            (System.getProperty("aether.dev.timescale")?.toFloatOrNull() ?: 1f).coerceIn(1f, 15f)
+    }
+
     override val connected: Boolean get() = true
     override val statusText: String get() = if (round == 0) "PRACTICE" else "PRACTICE - ROUND 2"
 
@@ -82,7 +92,7 @@ class LocalSession(
 
     override fun poll(dt: Float) {
         // Clamp so a stall (app resumed, GC pause) cannot make the sim run away.
-        accumulator += dt.coerceAtMost(0.25f)
+        accumulator += (dt * TIME_SCALE).coerceAtMost(0.25f)
         while (accumulator >= Config.DT) {
             accumulator -= Config.DT
             step()

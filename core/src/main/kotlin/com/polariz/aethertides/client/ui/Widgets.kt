@@ -244,7 +244,7 @@ class Widgets(private val art: Art, private val touch: Touch) {
         var held = false
 
         if (enabled) {
-            touch.pressedIn(x, y, w, h)?.let { p ->
+            touch.pressedIn(id, x, y, w, h)?.let { p ->
                 if (touch.claim(p, id)) kick(id)
             }
             val owned = touch.ownedBy(id)
@@ -308,7 +308,7 @@ class Widgets(private val art: Art, private val touch: Touch) {
         var fired = false
         var held = false
 
-        touch.pressedIn(cx - r, cy - r, r * 2, r * 2)?.let { p ->
+        touch.pressedIn(id, cx - r, cy - r, r * 2, r * 2)?.let { p ->
             if (touch.claim(p, id)) kick(id)
         }
         touch.ownedBy(id)?.let { p ->
@@ -414,7 +414,7 @@ class Widgets(private val art: Art, private val touch: Touch) {
     ): Float {
         var v = MathX.clamp01(value)
         val pad = w * 0.9f
-        touch.pressedIn(x - pad, y - pad, w + pad * 2, h + pad * 2)?.let { p ->
+        touch.pressedIn(id, x - pad, y - pad, w + pad * 2, h + pad * 2)?.let { p ->
             touch.claim(p, id)
         }
         val owned = touch.ownedBy(id)
@@ -477,7 +477,7 @@ class Widgets(private val art: Art, private val touch: Touch) {
         padResult.x = 0f
         padResult.y = 0f
 
-        touch.pressedIn(zoneX, zoneY, zoneW, zoneH)?.let { p ->
+        touch.pressedIn(id, zoneX, zoneY, zoneW, zoneH)?.let { p ->
             if (touch.claim(p, id)) {
                 padResult.originX = p.startX
                 padResult.originY = p.startY

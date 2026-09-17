@@ -6,6 +6,7 @@ import com.polariz.aethertides.client.Cam
 import com.polariz.aethertides.client.Icons
 import com.polariz.aethertides.client.Painter
 import com.polariz.aethertides.client.Palette
+import com.polariz.aethertides.client.SeaRenderer
 import com.polariz.aethertides.client.net.Session
 import com.polariz.aethertides.shared.math.MathX
 import com.polariz.aethertides.shared.net.SnapshotFrame
@@ -33,6 +34,11 @@ class NavigatorHud(
     private val touch: Touch
 ) {
 
+    private companion object {
+        /** Must match the gate in World.castSpell; the HUD only predicts what the sim will accept. */
+        const val CAST_RANGE = 120f
+    }
+
     private object Id {
         const val HELM = 100
         const val SPELL0 = 110
@@ -55,6 +61,7 @@ class NavigatorHud(
     private var time = 0f
 
     private val c = Color()
+    private val c2 = Color()
 
     /** Set by the play screen so the cast tap knows where the water is. */
     var castHintX = 0f
@@ -119,7 +126,7 @@ class NavigatorHud(
         val controlsBottom = 190f * s
         val helmZoneW = screenW * 0.36f
 
-        val p = touch.pressedIn(0f, 0f, screenW, screenH) ?: return
+        val p = touch.pressedIn(Id.CAST, 0f, 0f, screenW, screenH) ?: return
         // Do not steal taps that belong to the helm zone or the button strip.
         if (p.x < helmZoneW) return
         if (p.y < controlsBottom && p.x > screenW - 520f * s) return
@@ -131,7 +138,7 @@ class NavigatorHud(
         castHintY = wy
 
         val def = Spells[selectedSpell]
-        val inRange = abs(wx - f.shipX) <= 120f
+        val inRange = abs(wx - f.shipX) <= CAST_RANGE
         val ready = f.spellCooldown[selectedSpell.id] <= 0.001f
         val afford = f.aether >= def.cost
         val snared = f.snaredSpell == selectedSpell.id
@@ -145,12 +152,25 @@ class NavigatorHud(
     }
 
     /** Drawn in world space by the play screen, so it lands on the water not over the HUD. */
-    fun drawCastMarker(g: Painter, f: SnapshotFrame, cam: Cam) {
+    fun drawCastMarker(g: Painter, f: SnapshotFrame, cam: Cam, sea: SeaRenderer) {
         val def = Spells[selectedSpell]
-        // The reach ring: where the aether can actually be shaped from here.
-        c.set(Palette.aetherBar)
-        c.a = 0.10f + 0.04f * kotlin.math.sin(time * 2.2f)
-        g.line(f.shipX - 120f, f.shipY + 0.2f, f.shipX + 120f, f.shipY + 0.2f, 0.12f, c)
+        // The reach: where the aether can actually be shaped from here.
+        //
+        // This was a single straight line 240 m long at the ship's height. It cut clean across
+        // every crest and hung in the air over every trough, and at 12% alpha it did not read
+        // as a control at all -- it read as a seam in the sea. Two posts on the water at the
+        // ends of the reach say the same thing and belong to the scene.
+        val breathe = 0.6f + 0.4f * kotlin.math.sin(time * 2.2f)
+        for (side in -1..1 step 2) {
+            val px = f.shipX + side * CAST_RANGE
+            if (px < cam.left - 2f || px > cam.right + 2f) continue
+            val py = sea.surfaceYAt(px)
+            c.set(Palette.aetherBar); c.a = 0.35f * breathe
+            c2.set(Palette.aetherBar); c2.a = 0f
+            g.lineGradient(px, py - 1f, px, py + 5f, 0.22f, c, c2)
+            c.a = 0.55f * breathe
+            g.circle(px, py + 0.4f, 0.4f, 10, c)
+        }
 
         if (warnTimer > 0f) {
             c.set(Palette.danger)

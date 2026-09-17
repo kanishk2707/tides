@@ -42,8 +42,26 @@ class Touch : InputProcessor {
 
     val pointers = Array(MAX_POINTERS) { Pointer() }
 
-    /** Set true while a modal is up so gameplay widgets stop responding. */
-    var blocked = false
+    /**
+     * While non-null, only widgets whose id falls in this range may take a new press.
+     *
+     * This replaces a plain `blocked` flag, which made [pressedIn] return null for *everything*
+     * while a modal was up -- the modal's own buttons included. The end-of-round card and the
+     * Tempest's snare picker were therefore impossible to dismiss by touch: every button on
+     * them was dead the instant they appeared, and the only way out of either was the back key,
+     * which quit the match. Both are unreachable states on a phone with a gesture back.
+     *
+     * Opening a modal also releases any pointer claimed by a widget underneath it, so a helm
+     * being dragged when the round ends does not keep steering behind the card.
+     */
+    var modalIds: IntRange? = null
+        set(value) {
+            if (field == value) return
+            field = value
+            if (value != null) {
+                for (p in pointers) if (p.owner !in value) p.owner = UNCLAIMED
+            }
+        }
 
     fun beginFrame(dt: Float) {
         for (p in pointers) {
@@ -78,9 +96,12 @@ class Touch : InputProcessor {
         return null
     }
 
-    /** First unclaimed pointer that went down this frame inside the given rectangle. */
-    fun pressedIn(x: Float, y: Float, w: Float, h: Float): Pointer? {
-        if (blocked) return null
+    /**
+     * First unclaimed pointer that went down this frame inside the given rectangle, or null if
+     * a modal is up and [id] is not part of it.
+     */
+    fun pressedIn(id: Int, x: Float, y: Float, w: Float, h: Float): Pointer? {
+        modalIds?.let { if (id !in it) return null }
         for (p in pointers) {
             if (!p.active || !p.justDown || p.owner != UNCLAIMED) continue
             if (p.x >= x && p.x <= x + w && p.y >= y && p.y <= y + h) return p

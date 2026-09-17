@@ -385,10 +385,7 @@ class Fx(private val art: Art) {
             when (p.kind) {
                 Kind.SHOCK -> g.ring(p.x, p.y, size, tmp)
                 Kind.ARC -> drawArc(g, p, tmp)
-                Kind.TEXT -> {
-                    val s = p.label ?: continue
-                    g.textCentered(art.small, s, p.x, p.y, tmp)
-                }
+                Kind.TEXT -> continue          // drawn in pixels, see drawLabels
                 Kind.RAIN -> {
                     // A streak, oriented along its own velocity.
                     val len = size * 1.5f
@@ -402,6 +399,35 @@ class Fx(private val art: Art) {
             }
         }
         g.additive(false)
+    }
+
+    /**
+     * The rising labels, drawn under the HUD camera.
+     *
+     * Fonts are rasterised in pixels. Drawing one under the world camera, as this did, scales
+     * every glyph to as many *metres* as it has pixels -- a damage number stood a third of the
+     * screen tall. It went unnoticed for the whole life of the project because no event ever
+     * reached the renderer until the snapshot drain was fixed. So the label's world position is
+     * projected to the screen each frame and the text is drawn at its real size, with a short
+     * pop on arrival so the eye is pulled to it.
+     */
+    fun drawLabels(g: Painter, cam: Cam, screenW: Float, screenH: Float) {
+        for (p in pool) {
+            if (!p.alive || p.kind != Kind.TEXT) continue
+            val s = p.label ?: continue
+            if (p.x < cam.left - 10f || p.x > cam.right + 10f) continue
+            val t = 1f - p.life / p.maxLife
+            tmp.set(p.color)
+            tmp.a = if (t < 0.7f) 1f else 1f - (t - 0.7f) / 0.3f
+            val sx = cam.projectX(p.x, screenW)
+            val sy = cam.projectY(p.y, screenH)
+            // Pop: the label lands slightly large and settles over the first tenth of a second.
+            val pop = 1f + 0.35f * MathX.clamp01(1f - t * 10f)
+            val font = if (s.length <= 4) art.hud else art.small
+            font.data.setScale(pop)
+            g.textCentered(font, s, sx, sy, tmp)
+            font.data.setScale(1f)
+        }
     }
 
     private fun drawArc(g: Painter, p: P, color: Color) {

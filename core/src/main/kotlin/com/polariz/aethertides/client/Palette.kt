@@ -109,10 +109,18 @@ object Palette {
 
     private val tmp2 = Color()
 
-    fun alpha(c: Color, a: Float): Color {
-        tmp2.set(c)
-        tmp2.a = MathX.clamp01(a)
-        return tmp2
+    /**
+     * [c] at a different alpha, without allocating.
+     *
+     * The result is a single shared instance, so it must be **used immediately and once**.
+     * Two calls in the same argument list return the same object and the second overwrites the
+     * first; when two tints are needed at once, pass [into] for at least one of them.
+     */
+    fun alpha(c: Color, a: Float, into: Color? = null): Color {
+        val t = into ?: tmp2
+        t.set(c)
+        t.a = MathX.clamp01(a)
+        return t
     }
 
     /** Colour for a spell, so the HUD button and the zone on the water always agree. */

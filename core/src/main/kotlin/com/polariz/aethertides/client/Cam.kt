@@ -125,4 +125,11 @@ class Cam {
 
     fun unprojectY(screenY: Float): Float =
         top - (screenY / Gdx.graphics.height.toFloat()) * viewHeight
+
+    /** Screen pixel (bottom-left origin, HUD space) of a world x. */
+    fun projectX(worldX: Float, screenW: Float): Float =
+        (worldX - left) / viewWidth * screenW
+
+    fun projectY(worldY: Float, screenH: Float): Float =
+        (worldY - bottom) / viewHeight * screenH
 }

@@ -63,6 +63,7 @@ class TempestHud(
         private set
 
     private val c = Color()
+    private val c2 = Color()
 
     fun update(dt: Float, f: SnapshotFrame) {
         time += dt
@@ -111,7 +112,7 @@ class TempestHud(
         val s = art.uiScale
         val cardsTop = 150f * s
 
-        val p = touch.pressedIn(0f, cardsTop, screenW, screenH - cardsTop) ?: return
+        val p = touch.pressedIn(Id.PLACE, 0f, cardsTop, screenW, screenH - cardsTop) ?: return
         if (p.x < 130f * s) return                        // storm dial column
         if (!touch.claim(p, Id.PLACE)) return
 
@@ -130,7 +131,7 @@ class TempestHud(
 
     private fun handlePan(cam: Cam, screenW: Float, screenH: Float, s: Float) {
         // A second finger anywhere on the chart drags the view forward and back.
-        val p = touch.pressedIn(0f, 150f * s, screenW, screenH - 150f * s)
+        val p = touch.pressedIn(Id.PAN, 0f, 150f * s, screenW, screenH - 150f * s)
         if (p != null && touch.claim(p, Id.PAN)) { /* claimed on the way down */ }
         touch.ownedBy(Id.PAN)?.let {
             cam.pan = MathX.clamp(cam.pan - it.dx * (cam.viewWidth / screenW), -60f, 220f)
@@ -153,15 +154,43 @@ class TempestHud(
         val farX = bow + def.maxLead
 
         // Legal band.
-        c.set(Palette.maliceBar)
-        c.a = 0.06f
-        val top = cam.top
+        //
+        // It belongs to the water, so it stops at the water. Drawing the edges from cam.bottom
+        // to cam.top put a hard red rule straight up through the sky and the sun, which read as
+        // a rendering fault rather than as a rule of the game. They now rise out of the surface
+        // and fade to nothing a few metres up.
         val bottomY = cam.bottom
-        g.rect(nearX, bottomY, farX - nearX, top - bottomY, c)
-        c.a = 0.4f
-        g.line(nearX, bottomY, nearX, top, 0.22f, c)
-        c.a = 0.16f
-        g.line(farX, bottomY, farX, top, 0.18f, c)
+        val nearSurf = sea.surfaceYAt(nearX)
+        val farSurf = sea.surfaceYAt(farX)
+        val rise = 7f
+
+        // A slab hugging the surface, faded on all four sides.
+        //
+        // The original filled the whole water column at a flat 6%, which put a hard vertical
+        // seam down the entire lower half of the screen -- it read as a broken texture rather
+        // than as a rule of the game. Anything with a straight edge out here does. So the tint
+        // ramps in horizontally over a few metres at each end and falls off downward, and the
+        // only crisp marks left are the two edge posts, which sit on the water and fade out.
+        val surf = minOf(nearSurf, farSurf)
+        val slabY = maxOf(bottomY, surf - 9f)
+        val slabH = surf - slabY
+        if (slabH > 0.1f) {
+            val ramp = minOf(5f, (farX - nearX) * 0.3f)
+            val a = 0.085f
+            val clear = c.set(Palette.maliceBar).also { it.a = 0f }
+            val solid = c2.set(Palette.maliceBar).also { it.a = a }
+            // Lead-in, body, lead-out. Bottom corners are always clear, so the slab has no
+            // lower edge either.
+            g.rect(nearX, slabY, ramp, slabH, clear, clear, solid, clear)
+            g.rect(nearX + ramp, slabY, (farX - nearX) - ramp * 2f, slabH, clear, clear, solid, solid)
+            g.rect(farX - ramp, slabY, ramp, slabH, clear, clear, clear, solid)
+        }
+
+        c.a = 0.42f
+        c2.set(Palette.maliceBar); c2.a = 0f
+        g.lineGradient(nearX, nearSurf - 1.5f, nearX, nearSurf + rise, 0.22f, c, c2)
+        c.a = 0.18f
+        g.lineGradient(farX, farSurf - 1.5f, farX, farSurf + rise * 0.7f, 0.18f, c, c2)
 
         // Predicted track of the bow over the next few seconds, dotted along the real water.
         //
@@ -215,8 +244,9 @@ class TempestHud(
     private fun drawResources(
         g: Painter, f: SnapshotFrame, session: Session, sw: Float, sh: Float, s: Float
     ) {
+        val pitch = w.rowPitch(art.small)
         val pw = 340f * s
-        val ph = 104f * s
+        val ph = w.panelHeight(art.small, 3)
         val x = 16f * s
         val y = sh - ph - 14f * s
         w.panel(g, x, y, pw, ph)
@@ -224,17 +254,22 @@ class TempestHud(
         val inset = 14f * s
         val labelW = 76f * s
         val barW = pw - inset * 2 - labelW - 52f * s
+        // Three rows, stacked downward from the top inset. Written as a pitch rather than as
+        // three separate offsets so the bottom row cannot end up sitting on the panel edge --
+        // which is exactly where it was, since the panel height was fixed and the font is not.
+        val row0 = y + ph - art.unit * 1.3f - art.small.capHeight
 
-        w.meterRow(g, art.small, "MALICE", x + inset, y + ph - 32f * s, labelW, barW, 17f * s,
+        w.meterRow(g, art.small, "MALICE", x + inset, row0, labelW, barW, 17f * s,
             f.malice / Config.MAX_MALICE, Palette.maliceBar, pulse = time,
             readout = "%.0f".format(f.malice))
-        w.meterRow(g, art.small, "FURY", x + inset, y + ph - 60f * s, labelW, barW, 13f * s,
+        w.meterRow(g, art.small, "FURY", x + inset, row0 - pitch, labelW, barW, 13f * s,
             f.fury / Config.MAX_FURY, Palette.furyBar, pulse = time,
             readout = if (f.fury >= Config.MAX_FURY - 0.5f) "READY" else null,
             readoutTint = Palette.furyBar)
 
-        g.text(art.small, "SEA  " + beaufortName(f.seaState), x + inset, y + 24f * s, Palette.textDim)
-        g.textRight(art.small, session.statusText, x + pw - inset, y + 24f * s, Palette.textFaint)
+        val row2 = row0 - pitch * 2f
+        g.text(art.small, "SEA  " + beaufortName(f.seaState), x + inset, row2, Palette.textDim)
+        g.textRight(art.small, session.statusText, x + pw - inset, row2, Palette.textFaint)
     }
 
     private fun beaufortName(seaState: Float): String = when {
@@ -248,8 +283,9 @@ class TempestHud(
     }
 
     private fun drawTarget(g: Painter, f: SnapshotFrame, sw: Float, sh: Float, s: Float) {
+        val pitch = w.rowPitch(art.small)
         val pw = 330f * s
-        val ph = 84f * s
+        val ph = w.panelHeight(art.small, 3)
         val x = (sw - pw) * 0.5f
         val y = sh - ph - 14f * s
         w.panel(g, x, y, pw, ph)
@@ -257,29 +293,34 @@ class TempestHud(
         val inset = 14f * s
         val labelW = 64f * s
         val barW = pw - inset * 2 - labelW
+        val row0 = y + ph - art.unit * 1.3f - art.small.capHeight
 
         // What the Tempest is actually working on: their hull, and how far they have left.
-        w.meterRow(g, art.small, "HULL", x + inset, y + ph - 32f * s, labelW, barW, 16f * s,
+        w.meterRow(g, art.small, "HULL", x + inset, row0, labelW, barW, 16f * s,
             f.hull / Config.MAX_HULL, Palette.hullBar, warn = 0.3f, pulse = time)
 
         val progress = MathX.clamp01(f.shipX / Config.COURSE_LENGTH)
-        w.segments(g, x + inset, y + ph - 58f * s, pw - inset * 2, 10f * s,
+        w.segments(g, x + inset, row0 - pitch - 10f * s, pw - inset * 2, 10f * s,
             Config.LEAGUES, progress, Palette.accent)
 
         val remaining = maxOf(0f, Config.MATCH_TIME_LIMIT - f.time)
+        val row2 = row0 - pitch * 2f
         g.text(art.small, "%.0f%% TO SHORE".format(progress * 100f),
-            x + inset, y + 22f * s, Palette.textDim)
+            x + inset, row2, Palette.textDim)
         g.textRight(art.small, "%d:%02d".format((remaining / 60).toInt(), (remaining % 60).toInt()),
-            x + pw - inset, y + 22f * s, if (remaining < 45f) Palette.danger else Palette.textDim)
+            x + pw - inset, row2, if (remaining < 45f) Palette.danger else Palette.textDim)
     }
 
     private fun drawStormDial(
         g: Painter, f: SnapshotFrame, session: Session, sw: Float, sh: Float, s: Float, playing: Boolean
     ) {
-        val x = 30f * s
         val h = sh * 0.30f
         val y = sh * 0.32f
         val ww = 26f * s
+        val furyR = 38f * s
+        // The fury dial hangs under the slider and is wider than it, so the column is inset by
+        // whichever is larger. At 30*s it was half off the left edge of a short screen.
+        val x = maxOf(30f * s, furyR + art.unit * 1.8f) - ww * 0.5f
 
         val newVal = w.vSlider(g, Id.STORM, x, y, ww, h, stormWanted, Palette.maliceBar, "STORM")
         if (playing && abs(newVal - stormWanted) > 0.004f) {
@@ -299,10 +340,11 @@ class TempestHud(
             g.text(art.small, "CANNOT HOLD", x - 6f * s, y + h + 34f * s, c)
         }
 
-        // Fury sits under the dial, clear of the resource panel above it.
+        // Fury sits under the dial -- below the slider's own caption, which it used to overlap.
         val furyReady = f.fury >= Config.MAX_FURY - 0.5f && !f.krakenActive
+        val furyCy = y - art.unit * 0.5f - art.small.capHeight - art.unit - furyR
         if (w.actionButton(
-                g, Id.FURY, x + ww * 0.5f, y - 60f * s, 38f * s,
+                g, Id.FURY, x + ww * 0.5f, furyCy, furyR,
                 Icons.deploy(DeployKind.KRAKEN), "FURY", Palette.furyBar,
                 if (furyReady) 0f else 1f - f.fury / Config.MAX_FURY, furyReady, false
             ) && playing && furyReady
@@ -315,22 +357,44 @@ class TempestHud(
         g: Painter, f: SnapshotFrame, sw: Float, sh: Float, s: Float, playing: Boolean
     ) {
         val bar = Deployables.bar
-        val r = 36f * s
-        val gap = 14f * s
+
+        // Every vertical in here is measured, not guessed. The old numbers were tuned by eye
+        // against one window size, and on a short screen -- where uiScale floors at 0.55 but
+        // the fonts do not shrink proportionally -- the card captions fell out of the bottom
+        // of the panel and off the screen entirely.
+        val pad = art.unit * 1.1f
+        val capRow = w.rowPitch(art.small)
+        val titleRow = w.rowPitch(art.hud)
+
+        // The bar must fit nine cards across whatever width there is, so the radius is
+        // derived from the screen rather than fixed. On a narrow phone they simply get smaller
+        // instead of overlapping each other.
+        // width = n*2r + (n-1)*0.39r, so r follows straight from the space available.
+        val maxBarW = sw - art.unit * 6f
+        val span = bar.size * 2f + (bar.size - 1) * 0.39f
+        val r = minOf(36f * s, maxBarW / span)
+        val gap = r * 0.39f
         val total = bar.size * r * 2 + (bar.size - 1) * gap
-        val panelX = (sw - total) * 0.5f - 20f * s
-        val panelW = total + 40f * s
-        val panelH = 168f * s
-        w.panel(g, panelX, 8f * s, panelW, panelH, 0.92f)
+
+        // Bottom up: pad, caption, icon, and the cost chip that overhangs the top of the rim.
+        val panelY = art.unit
+        val cy = panelY + pad + capRow + r
+        val chipTop = cy + r * 1.07f * 0.76f + (art.small.capHeight + art.unit * 0.55f * 1.7f) * 0.5f
+        val blurbTop = chipTop + art.unit * 0.9f + capRow
+        val titleTop = blurbTop + titleRow
+        val panelH = titleTop + pad - panelY
+
+        val panelX = (sw - total) * 0.5f - art.unit * 2.5f
+        val panelW = total + art.unit * 5f
+        w.panel(g, panelX, panelY, panelW, panelH, 0.92f)
 
         // The full name and blurb of whatever is selected, inside the panel. Nine tools need
         // explaining in the moment, not in a menu the player has to leave the match to read.
         val def = Deployables[selected]
-        g.textCentered(art.hud, def.title, sw * 0.5f, 8f * s + panelH - 22f * s, Palette.textBright)
-        g.textCentered(art.small, def.blurb, sw * 0.5f, 8f * s + panelH - 50f * s, Palette.textDim)
+        g.textCentered(art.hud, def.title, sw * 0.5f, titleTop, Palette.textBright)
+        g.textCentered(art.small, def.blurb, sw * 0.5f, blurbTop, Palette.textDim)
 
         var cx = (sw - total) * 0.5f + r
-        val cy = 8f * s + 56f * s
         for (kind in bar) {
             val d = Deployables[kind]
             val cd = MathX.clamp01(f.deployCooldown[kind.id] / d.cooldown)
@@ -344,7 +408,6 @@ class TempestHud(
                 selected = kind
                 snarePicking = kind == DeployKind.AETHER_SNARE
             }
-            g.textCentered(art.small, "%.0f".format(d.cost), cx, cy - r * 0.62f, Palette.textFaint)
             cx += r * 2 + gap
         }
 
@@ -352,7 +415,7 @@ class TempestHud(
         if (warnTimer > 0f) {
             c.set(Palette.danger)
             c.a = MathX.clamp01(warnTimer) * 0.9f
-            g.textCentered(art.hud, reasonText(f), sw * 0.5f, 8f * s + panelH + 26f * s, c)
+            g.textCentered(art.hud, reasonText(f), sw * 0.5f, panelY + panelH + titleRow, c)
         }
     }
 
@@ -391,4 +454,7 @@ class TempestHud(
     }
 
     val modalOpen: Boolean get() = snarePicking
+
+    /** The ids the snare picker owns, so its own buttons still take input while it is up. */
+    val modalIds: IntRange get() = Id.SNARE0..(Id.SNARE0 + 15)
 }
