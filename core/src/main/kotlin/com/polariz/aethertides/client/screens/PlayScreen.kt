@@ -321,12 +321,6 @@ class PlayScreen(
         c.set(Palette.ink); c.a = 0.8f * a
         g.rect(0f, 0f, sw, sh, c)
 
-        val pw = minOf(740f * s, sw - 60f * s)
-        val ph = 470f * s
-        val x = (sw - pw) * 0.5f
-        val y = (sh - ph) * 0.5f
-        app.widgets.panel(g, x, y, pw, ph, a)
-
         val won = res.won
         val title = when {
             !res.seriesOver && session.role == Role.NAVIGATOR &&
@@ -335,14 +329,32 @@ class PlayScreen(
             won -> "THE VOYAGE IS YOURS"
             else -> "THE SEA TOOK IT"
         }
-
-        var ty = y + ph - 26f * s
+        val pw = minOf(740f * s, sw - 60f * s)
         // Drop to the smaller face rather than letting a long headline run off the card.
         val titleFont =
             if (g.textWidth(app.art.title, title) > pw - 56f * s) app.art.hudLarge else app.art.title
+        val showRuns = res.seriesOver && res.round0 >= 0f && res.round1 >= 0f
+
+        // The card is as tall as what it holds. It used to be a fixed 470 scaled pixels while
+        // every row inside it was measured from a font, so on a short screen -- where the
+        // scale floors but the fonts do not -- the title sat on its subtitle and the two-run
+        // summary was drawn behind the buttons.
+        val inset = 26f * s
+        val lh = app.art.hud.lineHeight * 1.12f
+        val titleH = titleFont.lineHeight * 1.18f
+        val subH = app.art.small.lineHeight * 1.9f
+        val runsH = if (showRuns) app.art.small.lineHeight * 1.5f else 0f
+        val bw = 260f * s
+        val bh = 62f * s
+        val ph = inset + titleH + subH + lh * 5f + lh * 0.55f + runsH + bh + 24f * s
+        val x = (sw - pw) * 0.5f
+        val y = (sh - ph) * 0.5f
+        app.widgets.panel(g, x, y, pw, ph, a)
+
+        var ty = y + ph - inset
         c.set(if (won) Palette.good else Palette.danger); c.a = a
         g.textCentered(titleFont, title, sw * 0.5f, ty, c)
-        ty -= titleFont.lineHeight * 0.95f
+        ty -= titleH
 
         c.set(Palette.textDim); c.a = a
         g.textCentered(
@@ -351,10 +363,9 @@ class PlayScreen(
             else "ROUND ${res.round + 1} OF 2  ·  NOW SWAP SIDES",
             sw * 0.5f, ty, c
         )
-        ty -= app.art.small.lineHeight * 1.9f
+        ty -= subH
 
         // Two columns, values right-aligned against the column edge.
-        val lh = app.art.hud.lineHeight * 1.12f
         val colLeftX = x + 42f * s
         val colLeftEnd = x + pw * 0.46f
         val colRightX = x + pw * 0.54f
@@ -381,10 +392,10 @@ class PlayScreen(
         ty -= lh
         stat("BEST AIR", "%.1f s".format(res.bestAir), colLeftX, colLeftEnd, ty, Palette.textBright)
         stat("TIME SURFING", "%.0f s".format(res.timeSurfing), colRightX, colRightEnd, ty, Palette.tsunami)
-        ty -= lh * 1.15f
+        ty -= lh * 1.55f
 
-        if (res.seriesOver && res.round0 >= 0f && res.round1 >= 0f) {
-            c.set(Palette.textFaint); c.a = a
+        if (showRuns) {
+            c.set(Palette.textDim); c.a = a
             g.textCentered(
                 app.art.small,
                 "RUN ONE  %.0f      RUN TWO  %.0f".format(res.round0, res.round1),
@@ -392,8 +403,6 @@ class PlayScreen(
             )
         }
 
-        val bw = 260f * s
-        val bh = 62f * s
         val by = y + 24f * s
         if (!res.seriesOver) {
             if (app.widgets.button(
@@ -432,7 +441,8 @@ class PlayScreen(
         resultAlpha = 0f
         started = false
         fx.clear()
-        banner("ROUND 2", "YOU ARE NOW THE ${roleName(session.role.other())}", Palette.accent, 2.6f)
+        // The session has already swapped seats by now, so this is the new role, not other().
+        banner("ROUND 2", "YOU ARE NOW THE ${roleName(session.role)}", Palette.accent, 2.6f)
     }
 
     private fun rematch() {

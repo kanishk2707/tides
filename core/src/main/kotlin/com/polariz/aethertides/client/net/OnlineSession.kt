@@ -266,7 +266,12 @@ class OnlineSession(
 
     override fun leave() {
         send(Packets.leave())
-        try { socket?.closeBlocking() } catch (_: Exception) {}
+        // Asynchronous on purpose. closeBlocking() waits for the close handshake, and on a
+        // connection that has silently died -- wifi dropped while the app was in the
+        // background, say -- that wait has no timeout. It froze the render thread on the
+        // HARBOUR button. The LEAVE frame is queued ahead of the close frame on the writer, so
+        // nothing is lost by not waiting.
+        try { socket?.close() } catch (_: Exception) {}
         socket = null
         if (state != State.DELETED) state = State.DISCONNECTED
     }
